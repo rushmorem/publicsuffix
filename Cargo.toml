@@ -1,6 +1,12 @@
 [package]
 name = "publicsuffix"
+description = "https://publicsuffix.org"
 version = "0.0.0"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/rushmorem/publicsuffix"
+documentation = "https://docs.rs/publicsuffix"
+readme = "README.md"
+keywords = ["tld", "gtld", "cctld", "domain"]
 authors = ["rushmorem <rushmore@webenchanter.com>"]
 
 [dependencies]
