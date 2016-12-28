@@ -1,0 +1,2 @@
+# publicsuffix
+https://publicsuffix.org
