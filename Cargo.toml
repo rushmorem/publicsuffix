@@ -1,0 +1,6 @@
+[package]
+name = "publicsuffix"
+version = "0.0.0"
+authors = ["rushmorem <rushmore@webenchanter.com>"]
+
+[dependencies]
