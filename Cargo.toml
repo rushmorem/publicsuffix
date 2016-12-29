@@ -10,3 +10,6 @@ keywords = ["tld", "gtld", "cctld", "domain"]
 authors = ["rushmorem <rushmore@webenchanter.com>"]
 
 [dependencies]
+reqwest = "0.2"
+error-chain = "0.7"
+idna = "0.1"
