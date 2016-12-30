@@ -11,11 +11,13 @@ pub mod errors;
 mod tests;
 
 use std::io::Read;
+use std::fs::File;
+use std::path::Path;
 use std::collections::HashMap;
 
 use errors::*;
 use reqwest::IntoUrl;
-use idna::domain_to_ascii;
+use idna::domain_to_unicode;
 
 #[derive(Debug)]
 struct Suffix {
@@ -45,11 +47,8 @@ const OFFICIAL_URL: &'static str = "https://publicsuffix.org/list/public_suffix_
 
 impl List {
     fn append(&mut self, rule: &str, typ: Type) -> Result<()> {
-        domain_to_ascii(rule)
-            .map_err(|err| ErrorKind::Uts46(err).into())
-            .and_then(|r| r.rsplit('.').next()
-                      .ok_or(ErrorKind::InvalidRule(rule.into()).into())
-                      .and_then(|r| Ok(r.to_string())))
+        rule.rsplit('.').next()
+            .ok_or(ErrorKind::InvalidRule(rule.into()).into())
             .and_then(|tld| {
                 if tld.is_empty() {
                     return Err(ErrorKind::InvalidRule(rule.into()).into());
@@ -65,7 +64,10 @@ impl List {
             })
     }
 
-    fn build(res: String) -> Result<List> {
+    fn build<R: Read>(mut reader: R) -> Result<List> {
+        let mut res = String::new();
+        reader.read_to_string(&mut res)?;
+
         let mut typ = Type::Icann;
 
         let mut list = List {
@@ -91,19 +93,16 @@ impl List {
         Ok(list)
     }
 
-    pub fn from_url<T: IntoUrl>(url: T) -> Result<List> {
+    pub fn from_url<U: IntoUrl>(url: U) -> Result<List> {
         reqwest::get(url)
             .map_err(|err| ErrorKind::Request(err).into())
-            .and_then(|mut res| {
-                let mut buf = String::new();
-                res.read_to_string(&mut buf)
-                    .map_err(|err| ErrorKind::Io(err).into())
-                    .and_then(|_| Ok(buf))})
             .and_then(Self::build)
     }
 
-    pub fn from_path(_path: &str) -> Result<List> {
-        unimplemented!();
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<List> {
+        File::open(path)
+            .map_err(|err| ErrorKind::Io(err).into())
+            .and_then(Self::build)
     }
 
     pub fn fetch() -> Result<List> {
@@ -142,9 +141,76 @@ impl List {
 }
 
 impl Domain {
-    pub fn parse<T: Into<String>>(domain: T) -> Domain {
-        let _domain = domain.into();
-        unimplemented!();
+    fn possible_matches<'a>(domain: &str, list: &'a List) -> Result<Vec<&'a Suffix>> {
+        domain.rsplit('.').next()
+            .ok_or(ErrorKind::InvalidDomain(domain.to_string()).into())
+            .and_then(|tld| {
+                if tld.is_empty() {
+                    return Err(ErrorKind::InvalidDomain(domain.to_string()).into());
+                }
+                Ok(tld)})
+            .and_then(|tld| {
+                let candidates = match list.rules.get(tld) {
+                    Some(candidates) => candidates,
+                    None => { return Ok(Vec::new()); },
+                };
+                let candidates = candidates.iter()
+                    .fold(Vec::new(), |mut res, ref suffix| {
+                        res.push(*suffix);
+                        res
+                    });
+                Ok(candidates)
+            })
+    }
+
+    fn find_match(domain: &str, candidates: Vec<&Suffix>) -> Result<Domain> {
+        let d_labels: Vec<&str> = domain.split('.').rev().collect();
+
+        let mut suffix = None;
+        let mut typ = None;
+        let mut num_labels = 0;
+
+        for candidate in candidates {
+            let s_labels: Vec<&str> = candidate.rule.split('.').rev().collect();
+            if s_labels.len() > d_labels.len() { continue; }
+            for (i, label) in s_labels.iter().enumerate() {
+                if *label == d_labels[i] || *label == "*" || label.trim_right_matches('!') == d_labels[i] {
+                    if i == s_labels.len()-1 {
+                        if s_labels.len() > num_labels {
+                            num_labels = s_labels.len();
+                            typ = Some(candidate.typ);
+                            let parts = if label.starts_with("!") {
+                                &d_labels[..s_labels.len()-1]
+                            } else {
+                                &d_labels[..s_labels.len()]
+                            };
+                            suffix = Some(parts.iter().rev()
+                                          .map(|part| *part)
+                                          .collect::<Vec<_>>()
+                                          .join("."));
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+
+        Ok(Domain {
+            full: domain.to_string(),
+            typ: typ,
+            suffix: suffix,
+        })
+    }
+
+    pub fn parse(domain: &str, list: &List) -> Result<Domain> {
+        let domain = domain.trim().trim_right_matches('.');
+        let (domain, res) = domain_to_unicode(domain);
+        if let Err(errors) = res {
+            return Err(ErrorKind::Uts46(errors).into());
+        }
+        Self::possible_matches(&domain, list)
+            .and_then(|res| Self::find_match(&domain, res))
     }
 
     pub fn suffix(&self) -> Option<&String> {
