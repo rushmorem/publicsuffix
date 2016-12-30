@@ -41,7 +41,30 @@ pub struct Domain {
     suffix: Option<String>,
 }
 
+const OFFICIAL_URL: &'static str = "https://publicsuffix.org/list/public_suffix_list.dat";
+
 impl List {
+    fn append(&mut self, rule: &str, typ: Type) -> Result<()> {
+        domain_to_ascii(rule)
+            .map_err(|err| ErrorKind::Uts46(err).into())
+            .and_then(|r| r.rsplit('.').next()
+                      .ok_or(ErrorKind::InvalidRule(rule.into()).into())
+                      .and_then(|r| Ok(r.to_string())))
+            .and_then(|tld| {
+                if tld.is_empty() {
+                    return Err(ErrorKind::InvalidRule(rule.into()).into());
+                }
+                Ok(tld)})
+            .and_then(|tld| {
+                self.rules.entry(tld.into()).or_insert(Vec::new())
+                    .push(Suffix {
+                        rule: rule.into(),
+                        typ: typ,
+                    });
+                Ok(())
+            })
+    }
+
     fn build(res: String) -> Result<List> {
         let mut typ = Type::Icann;
 
@@ -53,25 +76,13 @@ impl List {
             match line {
                 line if line.contains("BEGIN ICANN DOMAINS") => { typ = Type::Icann; }
                 line if line.contains("BEGIN PRIVATE DOMAINS") => { typ = Type::Private; }
-                line if line.starts_with("//") => {/* skip comment */}
+                line if line.starts_with("//") => { continue; }
                 line => {
                     let rule = line.trim();
                     if rule.is_empty() {
                         continue;
                     }
-                    let tld = rule.rsplit('.').next()
-                        .ok_or(ErrorKind::InvalidRule(rule.into()))
-                        .and_then(|tld| {
-                            if tld.is_empty() {
-                                return Err(ErrorKind::InvalidRule(rule.into()));
-                            }
-                            Ok(tld)
-                        })?;
-                    list.rules.entry(tld.into()).or_insert(Vec::new())
-                        .push(Suffix {
-                            rule: rule.into(),
-                            typ: typ,
-                        });
+                    list.append(rule, typ)?;
                 }
             }
         }
@@ -96,15 +107,19 @@ impl List {
     }
 
     pub fn fetch() -> Result<List> {
-        Self::from_url("https://publicsuffix.org/list/public_suffix_list.dat")
+        Self::from_url(OFFICIAL_URL)
     }
 
-    /*
     fn find_type(&self, typ: Type) -> Vec<&String> {
-        self.rules.iter()
-            .filter(|&(_, &v)| v == typ)
-            .map(|(ref k, _)| *k)
-            .collect()
+        self.rules.values()
+            .fold(Vec::new(), |mut res, ref suffices| {
+                for suffix in *suffices {
+                    if suffix.typ == typ {
+                        res.push(&suffix.rule);
+                    }
+                }
+                res
+            })
     }
 
     pub fn icann(&self) -> Vec<&String> {
@@ -116,9 +131,14 @@ impl List {
     }
 
     pub fn all(&self) -> Vec<&String> {
-        self.rules.keys().collect()
+        self.rules.values()
+            .fold(Vec::new(), |mut res, ref suffices| {
+                for suffix in *suffices {
+                    res.push(&suffix.rule);
+                }
+                res
+            })
     }
-    */
 }
 
 impl Domain {
@@ -127,15 +147,30 @@ impl Domain {
         unimplemented!();
     }
 
-    pub fn suffix(&self) -> Option<String> {
-        unimplemented!();
+    pub fn suffix(&self) -> Option<&String> {
+        match self.suffix {
+            Some(ref suffix) => Some(suffix),
+            None => None,
+        }
     }
 
     pub fn is_private(&self) -> bool {
-        unimplemented!();
+        match self.typ {
+            Some(typ) => match typ {
+                Type::Icann => false,
+                Type::Private => true,
+            },
+            None => false,
+        }
     }
 
     pub fn is_icann(&self) -> bool {
-        unimplemented!();
+        match self.typ {
+            Some(typ) => match typ {
+                Type::Icann => true,
+                Type::Private => false,
+            },
+            None => false,
+        }
     }
 }
