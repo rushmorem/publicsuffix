@@ -41,6 +41,7 @@ pub struct Domain {
     full: String,
     typ: Option<Type>,
     suffix: Option<String>,
+    registrable: Option<String>,
 }
 
 const OFFICIAL_URL: &'static str = "https://publicsuffix.org/list/public_suffix_list.dat";
@@ -163,9 +164,17 @@ impl Domain {
             })
     }
 
+    fn assemble(d_labels: &Vec<&str>, s_len: usize) -> String {
+        d_labels[..s_len].iter().rev()
+            .map(|part| *part)
+            .collect::<Vec<_>>()
+            .join(".")
+    }
+
     fn find_match(domain: &str, candidates: Vec<&Suffix>) -> Result<Domain> {
         let d_labels: Vec<&str> = domain.split('.').rev().collect();
 
+        let mut registrable = None;
         let mut suffix = None;
         let mut typ = None;
         let mut num_labels = 0;
@@ -179,15 +188,15 @@ impl Domain {
                         if s_labels.len() > num_labels {
                             num_labels = s_labels.len();
                             typ = Some(candidate.typ);
-                            let parts = if label.starts_with("!") {
-                                &d_labels[..s_labels.len()-1]
+                            let s_len = if label.starts_with("!") {
+                                s_labels.len()-1
                             } else {
-                                &d_labels[..s_labels.len()]
+                                s_labels.len()
                             };
-                            suffix = Some(parts.iter().rev()
-                                          .map(|part| *part)
-                                          .collect::<Vec<_>>()
-                                          .join("."));
+                            suffix = Some(Self::assemble(&d_labels, s_len));
+                            if d_labels.len() > s_len {
+                                registrable = Some(Self::assemble(&d_labels, s_len+1));
+                            }
                         }
                     }
                 } else {
@@ -200,6 +209,7 @@ impl Domain {
             full: domain.to_string(),
             typ: typ,
             suffix: suffix,
+            registrable: registrable,
         })
     }
 
@@ -211,6 +221,13 @@ impl Domain {
         }
         Self::possible_matches(&domain, list)
             .and_then(|res| Self::find_match(&domain, res))
+    }
+
+    pub fn root_domain(&self) -> Option<&String> {
+        match self.registrable {
+            Some(ref registrable) => Some(registrable),
+            None => None,
+        }
     }
 
     pub fn suffix(&self) -> Option<&String> {
