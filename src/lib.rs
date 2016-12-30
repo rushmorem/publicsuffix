@@ -169,8 +169,14 @@ impl Domain {
         Ok(candidates)
     }
 
-    fn assemble(d_labels: &Vec<&str>, s_len: usize) -> String {
-        d_labels[..s_len].iter().rev()
+    fn assemble(input: &str, s_len: usize) -> String {
+        let domain = input.to_lowercase();
+
+        let d_labels: Vec<&str> = domain
+            .trim_right_matches('.')
+            .split('.').rev().collect();
+
+        (&d_labels[..s_len]).iter().rev()
             .map(|part| *part)
             .collect::<Vec<_>>()
             .join(".")
@@ -201,9 +207,9 @@ impl Domain {
                                 } else {
                                     s_labels.len()
                                 };
-                                suffix = Some(Self::assemble(&d_labels, s_len));
+                                suffix = Some(Self::assemble(input, s_len));
                                 if d_labels.len() > s_len {
-                                    registrable = Some(Self::assemble(&d_labels, s_len+1));
+                                    registrable = Some(Self::assemble(input, s_len+1));
                                 } else {
                                     registrable = None;
                                 }
@@ -216,8 +222,8 @@ impl Domain {
             }
 
             if suffix.is_none() && d_labels.len() > 1 && no_possible_matches_found {
-                    suffix = Some(Self::assemble(&d_labels, 1));
-                    registrable = Some(Self::assemble(&d_labels, 2));
+                    suffix = Some(Self::assemble(input, 1));
+                    registrable = Some(Self::assemble(input, 2));
             }
         }
 
