@@ -149,7 +149,6 @@ impl Domain {
     }
 
     fn find_possible_matches<'a>(domain: &str, list: &'a List) -> Result<Vec<&'a Suffix>> {
-        println!("domain: {:?}", domain);
         let tld = match domain.rsplit('.').next() {
             Some(tld) => {
                 if tld.is_empty() { return Ok(Vec::new()); }

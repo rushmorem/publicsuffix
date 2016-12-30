@@ -23,17 +23,31 @@ fn test_psl() {
                     "None" => "",
                     res => res,
                 };
-                let expected = match test[3] {
-                    "None" => None,
-                    res => Some(res.to_string()),
+                let (expected_root, expected_suffix) = match test[3] {
+                    "None" => (None, None),
+                    root => {
+                        let suffix = {
+                            let parts: Vec<&str> = root.split('.').rev().collect();
+                            (&parts[..parts.len()-1]).iter().rev()
+                                .map(|part| *part)
+                                .collect::<Vec<_>>()
+                                .join(".")
+                        };
+                        (Some(root.to_string()), Some(suffix.to_string()))
+                    },
                 };
                 let domain = Domain::parse(input, &list).unwrap();
-                let found = match domain.root_domain() {
+                let found_root = match domain.root_domain() {
                     Some(found) => Some(found.to_string()),
                     None => None,
                 };
-                if expected != found {
-                    let msg = format!("Given {}, we expected {:?}, but found {:?} on line {}. The domain is {:?}.", input, expected, found, i+1, domain);
+                let found_suffix = match domain.suffix() {
+                    Some(found) => Some(found.to_string()),
+                    None => None,
+                };
+                if expected_root != found_root || (expected_root.is_some() && expected_suffix != found_suffix) {
+                    let msg = format!("\n\nGiven '{}':\nWe expected root domain to be '{:?}' and suffix be '{:?}'\nBut instead, we have '{:?}' as root domain and '{:?}' as suffix.\nWe are on line {} of `test_psl.txt`.\n\n",
+                                      input, expected_root, expected_suffix, found_root, found_suffix, i+1);
                     panic!(msg);
                 }
             }
