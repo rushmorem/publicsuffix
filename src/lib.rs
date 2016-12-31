@@ -138,6 +138,10 @@ impl List {
                 res
             })
     }
+
+    pub fn parse_domain(&self, domain: &str) -> Result<Domain> {
+        Domain::parse(domain, self)
+    }
 }
 
 impl Domain {
