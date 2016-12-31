@@ -198,6 +198,7 @@ impl List {
 }
 
 impl Domain {
+    /// Check if a domain has valid syntax
     pub fn has_valid_syntax(domain: &str) -> bool {
         if domain.starts_with('.') { return false; }
         let domain = match domain_to_ascii(domain) {
@@ -207,9 +208,8 @@ impl Domain {
         let re = Regex::new(r"^(([A-Za-z0-9]+)|([A-Za-z0-9]+([A-Za-z0-9-]*[A-Za-z0-9]+)*))$").unwrap();
         let labels: Vec<&str> = domain.split('.').collect();
         for label in labels {
-            if !re.is_match(label) {
-                return false;
-            }
+            if label.chars().count() > 63 { return false; }
+            if !re.is_match(label) { return false; }
         }
         true
     }

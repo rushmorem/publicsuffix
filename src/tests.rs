@@ -103,5 +103,15 @@ fn list_behaviour() {
             assert!(list.parse_domain("exa/mple.com").is_err());
             Ok(()) as Result<(), ()>
         });
+
+        ctx.it("should not have a label > 63 characters", || {
+            let mut too_long_domain = String::from("a");
+            for _ in 0..64 {
+                too_long_domain.push_str("a");
+            }
+            too_long_domain.push_str(".com");
+            assert!(list.parse_domain(&too_long_domain).is_err());
+            Ok(()) as Result<(), ()>
+        });
     });
 }

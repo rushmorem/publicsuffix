@@ -1,12 +1,12 @@
 [package]
 name = "publicsuffix"
-description = "Easily and accurately validate or break down any given domain name"
-version = "0.0.1"
+description = "Accurately parse domain names using The Public Suffix List"
+version = "0.0.2"
 license = "MIT/Apache-2.0"
 repository = "https://github.com/rushmorem/publicsuffix"
 documentation = "https://docs.rs/publicsuffix"
 readme = "README.md"
-keywords = ["tld", "gtld", "cctld", "domain"]
+keywords = ["tld", "gtld", "cctld", "domain", "psl", "tld"]
 authors = ["rushmorem <rushmore@webenchanter.com>"]
 
 [dependencies]
