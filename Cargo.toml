@@ -6,7 +6,7 @@ license = "MIT/Apache-2.0"
 repository = "https://github.com/rushmorem/publicsuffix"
 documentation = "https://docs.rs/publicsuffix"
 readme = "README.md"
-keywords = ["tld", "gtld", "cctld", "domain", "psl", "tld"]
+keywords = ["tld", "gtld", "cctld", "domain", "psl"]
 authors = ["rushmorem <rushmore@webenchanter.com>"]
 
 [dependencies]
