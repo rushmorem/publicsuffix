@@ -1,6 +1,6 @@
 [package]
 name = "publicsuffix"
-description = "https://publicsuffix.org"
+description = "Easily and accurately validate or break down any given domain name"
 version = "0.0.1"
 license = "MIT/Apache-2.0"
 repository = "https://github.com/rushmorem/publicsuffix"
