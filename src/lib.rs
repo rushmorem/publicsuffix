@@ -39,6 +39,7 @@
 #[macro_use]
 extern crate error_chain;
 extern crate reqwest;
+extern crate regex;
 extern crate idna;
 
 pub mod errors;
@@ -52,8 +53,9 @@ use std::path::Path;
 use std::collections::HashMap;
 
 use errors::*;
+use regex::Regex;
 use reqwest::IntoUrl;
-use idna::domain_to_unicode;
+use idna::{domain_to_unicode, domain_to_ascii};
 
 #[derive(Debug)]
 struct Suffix {
@@ -196,11 +198,20 @@ impl List {
 }
 
 impl Domain {
-    fn is_valid(domain: &str) -> bool {
-        match domain {
-            d if d.starts_with('.') => { return false; }
-            _ => { true }
+    pub fn has_valid_syntax(domain: &str) -> bool {
+        if domain.starts_with('.') { return false; }
+        let domain = match domain_to_ascii(domain) {
+            Ok(domain) => domain,
+            Err(_) => { return false; },
+        };
+        let re = Regex::new(r"^(([A-Za-z0-9]+)|([A-Za-z0-9]+([A-Za-z0-9-]*[A-Za-z0-9]+)*))$").unwrap();
+        let labels: Vec<&str> = domain.split('.').collect();
+        for label in labels {
+            if !re.is_match(label) {
+                return false;
+            }
         }
+        true
     }
 
     fn find_possible_matches<'a>(domain: &str, list: &'a List) -> Result<Vec<&'a Suffix>> {
@@ -236,7 +247,7 @@ impl Domain {
             .join(".")
     }
 
-    fn find_match(input: &str, domain: &str, domain_is_valid: bool, candidates: Vec<&Suffix>) -> Result<Domain> {
+    fn find_match(input: &str, domain: &str, candidates: Vec<&Suffix>) -> Result<Domain> {
         let d_labels: Vec<&str> = domain.split('.').rev().collect();
 
         let mut registrable = None;
@@ -244,41 +255,39 @@ impl Domain {
         let mut typ = None;
         let mut num_labels = 0;
 
-        if domain_is_valid {
-            let no_possible_matches_found = candidates.is_empty();
+        let no_possible_matches_found = candidates.is_empty();
 
-            for candidate in candidates {
-                let s_labels: Vec<&str> = candidate.rule.split('.').rev().collect();
-                if s_labels.len() > d_labels.len() { continue; }
-                for (i, label) in s_labels.iter().enumerate() {
-                    if *label == d_labels[i] || *label == "*" || label.trim_left_matches('!') == d_labels[i] {
-                        if i == s_labels.len()-1 {
-                            if s_labels.len() >= num_labels {
-                                num_labels = s_labels.len();
-                                typ = Some(candidate.typ);
-                                let s_len = if label.starts_with("!") {
-                                    s_labels.len()-1
-                                } else {
-                                    s_labels.len()
-                                };
-                                suffix = Some(Self::assemble(input, s_len));
-                                if d_labels.len() > s_len {
-                                    registrable = Some(Self::assemble(input, s_len+1));
-                                } else {
-                                    registrable = None;
-                                }
+        for candidate in candidates {
+            let s_labels: Vec<&str> = candidate.rule.split('.').rev().collect();
+            if s_labels.len() > d_labels.len() { continue; }
+            for (i, label) in s_labels.iter().enumerate() {
+                if *label == d_labels[i] || *label == "*" || label.trim_left_matches('!') == d_labels[i] {
+                    if i == s_labels.len()-1 {
+                        if s_labels.len() >= num_labels {
+                            num_labels = s_labels.len();
+                            typ = Some(candidate.typ);
+                            let s_len = if label.starts_with("!") {
+                                s_labels.len()-1
+                            } else {
+                                s_labels.len()
+                            };
+                            suffix = Some(Self::assemble(input, s_len));
+                            if d_labels.len() > s_len {
+                                registrable = Some(Self::assemble(input, s_len+1));
+                            } else {
+                                registrable = None;
                             }
                         }
-                    } else {
-                        break;
                     }
+                } else {
+                    break;
                 }
             }
+        }
 
-            if suffix.is_none() && d_labels.len() > 1 && no_possible_matches_found {
-                    suffix = Some(Self::assemble(input, 1));
-                    registrable = Some(Self::assemble(input, 2));
-            }
+        if suffix.is_none() && d_labels.len() > 1 && no_possible_matches_found {
+            suffix = Some(Self::assemble(input, 1));
+            registrable = Some(Self::assemble(input, 2));
         }
 
         Ok(Domain {
@@ -292,22 +301,16 @@ impl Domain {
     /// Parses a domain using the list
     pub fn parse(domain: &str, list: &List) -> Result<Domain> {
         let input = domain;
-
+        if !Self::has_valid_syntax(input) {
+            return Err(ErrorKind::InvalidDomain(input.into()).into());
+        }
         let domain = input.trim().trim_right_matches('.');
         let (domain, res) = domain_to_unicode(domain);
         if let Err(errors) = res {
             return Err(ErrorKind::Uts46(errors).into());
         }
-
-        let domain_is_valid = Domain::is_valid(input);
-
-        let res = if domain_is_valid {
-            Self::find_possible_matches(&domain, list)?
-        } else {
-            Vec::new()
-        };
-
-        Self::find_match(input, &domain, domain_is_valid, res)
+        Self::find_possible_matches(&domain, list)
+            .and_then(|res| Self::find_match(input, &domain, res))
     }
 
     /// Gets the root domain portion if any

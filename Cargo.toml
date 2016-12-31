@@ -13,3 +13,7 @@ authors = ["rushmorem <rushmore@webenchanter.com>"]
 reqwest = "0.2"
 error-chain = "0.7"
 idna = "0.1"
+regex = "0.1"
+
+[dev_dependencies]
+rspec = "1.0.0-beta.3"
