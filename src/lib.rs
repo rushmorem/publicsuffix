@@ -291,4 +291,8 @@ impl Domain {
             None => false,
         }
     }
+
+    pub fn has_known_suffix(&self) -> bool {
+        self.typ.is_some()
+    }
 }
