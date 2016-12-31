@@ -1,3 +1,5 @@
+//! Errors returned by this library
+
 error_chain! {
     foreign_links {
         Request(::reqwest::Error);

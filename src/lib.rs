@@ -1,3 +1,39 @@
+//! The Public Suffix List Client Library
+//!
+//! This library allows you to easily and accurately validate
+//! or break down any given domain name.
+//!
+//! ## Examples
+//!
+//! ```
+//! extern crate publicsuffix;
+//!
+//! use publicsuffix::List;
+//!
+//! fn main() {
+//!     let list = List::fetch().unwrap();
+//!
+//!     let domain = list.parse_domain("www.example.com").unwrap();
+//!     let tld = domain.root_domain().unwrap();
+//!     assert_eq!(tld, &String::from("example.com"));
+//!
+//!     let domain = list.parse_domain("www.食狮.中国").unwrap();
+//!     let tld = domain.root_domain().unwrap();
+//!     assert_eq!(tld, &String::from("食狮.中国"));
+//!
+//!     let domain = list.parse_domain("www.xn--85x722f.xn--55qx5d.cn").unwrap();
+//!     let tld = domain.root_domain().unwrap();
+//!     assert_eq!(tld, &String::from("xn--85x722f.xn--55qx5d.cn"));
+//!
+//!     let domain = list.parse_domain("a.b.domain.biz").unwrap();
+//!     let suffix = domain.suffix().unwrap();
+//!     assert_eq!(suffix, &String::from("biz"));
+//!
+//!     let domain = list.parse_domain("a.b.example.uk.com").unwrap();
+//!     let suffix = domain.suffix().unwrap();
+//!     assert_eq!(suffix, &String::from("uk.com"));
+//! }
+
 #![recursion_limit = "1024"]
 
 #[macro_use]
@@ -25,6 +61,11 @@ struct Suffix {
     typ: Type,
 }
 
+/// Stores the public suffix list
+///
+/// You can use the methods, `fetch`, `from_url` or `from_path` to build the list.
+/// If you are using this in a long running server it's recommended you use either
+/// `fetch` or `from_url` to download updates at least once a week.
 #[derive(Debug)]
 pub struct List {
     rules: HashMap<String, Vec<Suffix>>,
@@ -36,6 +77,9 @@ enum Type {
     Private,
 }
 
+/// Holds information about a particular domain
+///
+/// This is created by `Domain::parse` or `List::parse_domain`.
 #[derive(Debug, Clone)]
 pub struct Domain {
     full: String,
@@ -93,18 +137,21 @@ impl List {
         Ok(list)
     }
 
+    /// Pull the list from a URL
     pub fn from_url<U: IntoUrl>(url: U) -> Result<List> {
         reqwest::get(url)
             .map_err(|err| ErrorKind::Request(err).into())
             .and_then(Self::build)
     }
 
+    /// Fetch the list from a local file
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<List> {
         File::open(path)
             .map_err(|err| ErrorKind::Io(err).into())
             .and_then(Self::build)
     }
 
+    /// Pull the list from the official URL
     pub fn fetch() -> Result<List> {
         Self::from_url(OFFICIAL_URL)
     }
@@ -121,14 +168,17 @@ impl List {
             })
     }
 
+    /// Gets a list of all ICANN domain suffices
     pub fn icann(&self) -> Vec<&String> {
         self.find_type(Type::Icann)
     }
 
+    /// Gets a list of all private domain suffices
     pub fn private(&self) -> Vec<&String> {
         self.find_type(Type::Private)
     }
 
+    /// Gets a list of all domain suffices
     pub fn all(&self) -> Vec<&String> {
         self.rules.values()
             .fold(Vec::new(), |mut res, ref suffices| {
@@ -139,6 +189,7 @@ impl List {
             })
     }
 
+    /// Parses a domain using the list
     pub fn parse_domain(&self, domain: &str) -> Result<Domain> {
         Domain::parse(domain, self)
     }
@@ -238,6 +289,7 @@ impl Domain {
         })
     }
 
+    /// Parses a domain using the list
     pub fn parse(domain: &str, list: &List) -> Result<Domain> {
         let input = domain;
 
@@ -258,6 +310,7 @@ impl Domain {
         Self::find_match(input, &domain, domain_is_valid, res)
     }
 
+    /// Gets the root domain portion if any
     pub fn root_domain(&self) -> Option<&String> {
         match self.registrable {
             Some(ref registrable) => Some(registrable),
@@ -265,6 +318,7 @@ impl Domain {
         }
     }
 
+    /// Gets the suffix if any
     pub fn suffix(&self) -> Option<&String> {
         match self.suffix {
             Some(ref suffix) => Some(suffix),
@@ -272,6 +326,7 @@ impl Domain {
         }
     }
 
+    /// Whether the domain has a private suffix
     pub fn is_private(&self) -> bool {
         match self.typ {
             Some(typ) => match typ {
@@ -282,6 +337,7 @@ impl Domain {
         }
     }
 
+    /// Whether the domain has an ICANN suffix
     pub fn is_icann(&self) -> bool {
         match self.typ {
             Some(typ) => match typ {
@@ -292,6 +348,15 @@ impl Domain {
         }
     }
 
+    /// Whether this domain's suffix is in the list
+    ///
+    /// If it is, this is definately a valid domain. If it's not
+    /// chances are very high that this isn't a valid domain name,
+    /// however, it might simply be because the suffix is new and
+    /// it hasn't been added to the list yet.
+    ///
+    /// If you want to validate a domain name, use this as a quick
+    /// check but fall back to a DNS lookup if it returns false.
     pub fn has_known_suffix(&self) -> bool {
         self.typ.is_some()
     }
