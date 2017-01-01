@@ -9,30 +9,39 @@
 //! extern crate publicsuffix;
 //!
 //! use publicsuffix::List;
+//! # use publicsuffix::errors::Result;
 //!
-//! fn main() {
-//!     let list = List::fetch().unwrap();
+//! # fn examples() -> Result<()> {
+//! let list = List::fetch()?;
 //!
-//!     let domain = list.parse_domain("www.example.com").unwrap();
-//!     let tld = domain.root_domain().unwrap();
-//!     assert_eq!(tld, "example.com");
+//! // Using the list you can find out the root domain
+//! // or extension of any given domain name
+//! let domain = list.parse_domain("www.example.com")?;
+//! assert_eq!(domain.root(), Some("example.com"));
+//! assert_eq!(domain.suffix(), Some("com"));
 //!
-//!     let domain = list.parse_domain("www.食狮.中国").unwrap();
-//!     let tld = domain.root_domain().unwrap();
-//!     assert_eq!(tld, "食狮.中国");
+//! let domain = list.parse_domain("www.食狮.中国")?;
+//! assert_eq!(domain.root(), Some("食狮.中国"));
+//! assert_eq!(domain.suffix(), Some("中国"));
 //!
-//!     let domain = list.parse_domain("www.xn--85x722f.xn--55qx5d.cn").unwrap();
-//!     let tld = domain.root_domain().unwrap();
-//!     assert_eq!(tld, "xn--85x722f.xn--55qx5d.cn");
+//! let domain = list.parse_domain("www.xn--85x722f.xn--55qx5d.cn")?;
+//! assert_eq!(domain.root(), Some("xn--85x722f.xn--55qx5d.cn"));
+//! assert_eq!(domain.suffix(), Some("xn--55qx5d.cn"));
 //!
-//!     let domain = list.parse_domain("a.b.domain.biz").unwrap();
-//!     let suffix = domain.suffix().unwrap();
-//!     assert_eq!(suffix, "biz");
+//! let domain = list.parse_domain("a.b.example.uk.com")?;
+//! assert_eq!(domain.root(), Some("example.uk.com"));
+//! assert_eq!(domain.suffix(), Some("uk.com"));
 //!
-//!     let domain = list.parse_domain("a.b.example.uk.com").unwrap();
-//!     let suffix = domain.suffix().unwrap();
-//!     assert_eq!(suffix, "uk.com");
-//! }
+//! // You can also find out if this is an ICANN domain
+//! assert!(domain.is_icann());
+//!
+//! // or a private one
+//! assert!(!domain.is_private());
+//!
+//! // In any case if the domain's suffix is in the list
+//! // then this is definately a registrable domain name
+//! assert!(domain.has_known_suffix());
+//! # }
 
 #![recursion_limit = "1024"]
 
@@ -81,7 +90,7 @@ enum Type {
 
 /// Holds information about a particular domain
 ///
-/// This is created by `Domain::parse` or `List::parse_domain`.
+/// This is created by `List::parse_domain`.
 #[derive(Debug, Clone)]
 pub struct Domain {
     full: String,
@@ -331,8 +340,7 @@ impl Domain {
         }
     }
 
-    /// Parses a domain using the list
-    pub fn parse(domain: &str, list: &List) -> Result<Domain> {
+    fn parse(domain: &str, list: &List) -> Result<Domain> {
         if !Self::has_valid_syntax(domain) {
             return Err(ErrorKind::InvalidDomain(domain.into()).into());
         }
@@ -347,7 +355,7 @@ impl Domain {
     }
 
     /// Gets the root domain portion if any
-    pub fn root_domain(&self) -> Option<&str> {
+    pub fn root(&self) -> Option<&str> {
         match self.registrable {
             Some(ref registrable) => Some(registrable),
             None => None,

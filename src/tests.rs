@@ -70,7 +70,7 @@ fn list_behaviour() {
                     };
                     let (found_root, found_suffix) = match list.parse_domain(input) {
                         Ok(domain) => {
-                            let found_root = match domain.root_domain() {
+                            let found_root = match domain.root() {
                                 Some(found) => Some(found.to_string()),
                                 None => None,
                             };
