@@ -199,6 +199,9 @@ impl List {
 
 impl Domain {
     /// Check if a domain has valid syntax
+    // https://en.wikipedia.org/wiki/Domain_name#Domain_name_syntax
+    // http://blog.sacaluta.com/2011/12/dns-domain-names-253-or-255-bytesoctets.html
+    // https://blogs.msdn.microsoft.com/oldnewthing/20120412-00/?p=7873/
     pub fn has_valid_syntax(domain: &str) -> bool {
         // we are explicitly checking for this here before calling `domain_to_ascii`
         // because `domain_to_ascii` strips of leading dots so we won't be able to
@@ -206,15 +209,22 @@ impl Domain {
         if domain.starts_with('.') { return false; }
         // let's convert the domain to ascii early on so we can validate
         // internationalised domain names as well
-        let domain = match domain_to_ascii(domain) {
-            Ok(domain) => domain,
-            Err(_) => { return false; },
+        let domain = match Self::to_ascii(domain) {
+            Ok(domain) => {
+                let mut len = domain.chars().count();
+                if domain.ends_with(".") { len -= 1; }
+                if len > 253 { return false; }
+                domain
+            }
+            Err(_) => { return false; }
         };
         // all labels must conform to this pattern
         let pattern = Regex::new("^([[:alnum:]]+|[[:alnum:]]+[[:alnum:]-]*[[:alnum:]]+)$").unwrap();
         let mut labels: Vec<&str> = domain.split('.').collect();
         // strip of the first dot from a domain to support fully qualified domain names
         if domain.ends_with(".") { labels.pop(); }
+        // a domain must not have more than 127 labels
+        if labels.len() > 127 { return false; }
         labels.reverse();
         for (i, label) in labels.iter().enumerate() {
             // any label must be 63 characters or less
@@ -286,7 +296,8 @@ impl Domain {
                             };
                             suffix = Some(Self::assemble(input, s_len));
                             if d_labels.len() > s_len {
-                                registrable = Some(Self::assemble(input, s_len+1));
+                                let root = Self::assemble(input, s_len+1);
+                                registrable = Some(root);
                             } else {
                                 registrable = None;
                             }
@@ -311,12 +322,21 @@ impl Domain {
         })
     }
 
+    fn to_ascii(domain: &str) -> Result<String> {
+        match domain_to_ascii(domain) {
+            Ok(domain) => Ok(domain.into()),
+            Err(_) => {
+                return Err(ErrorKind::InvalidDomain(domain.into()).into());
+            },
+        }
+    }
+
     /// Parses a domain using the list
     pub fn parse(domain: &str, list: &List) -> Result<Domain> {
-        let input = domain;
-        if !Self::has_valid_syntax(input) {
-            return Err(ErrorKind::InvalidDomain(input.into()).into());
+        if !Self::has_valid_syntax(domain) {
+            return Err(ErrorKind::InvalidDomain(domain.into()).into());
         }
+        let input = domain;
         let domain = input.trim().trim_right_matches('.');
         let (domain, res) = domain_to_unicode(domain);
         if let Err(errors) = res {

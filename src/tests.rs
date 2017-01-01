@@ -142,5 +142,25 @@ fn list_behaviour() {
             assert!(list.parse_domain("127.com").is_ok());
             pass!()
         });
+
+        ctx.it("should not have more than 127 labels", || {
+            let mut too_many_labels_domain = String::from("a");
+            for _ in 0..126 {
+                too_many_labels_domain.push_str(".a");
+            }
+            too_many_labels_domain.push_str(".com");
+            assert!(list.parse_domain(&too_many_labels_domain).is_err());
+            pass!()
+        });
+
+        ctx.it("should not have more than 253 characters", || {
+            let mut too_many_chars_domain = String::from("aaaaa");
+            for _ in 0..50 {
+                too_many_chars_domain.push_str(".aaaaaa");
+            }
+            too_many_chars_domain.push_str(".com");
+            assert!(list.parse_domain(&too_many_chars_domain).is_err());
+            pass!()
+        });
     });
 }
