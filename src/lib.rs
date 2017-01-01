@@ -211,7 +211,7 @@ impl Domain {
             Err(_) => { return false; },
         };
         // all labels must conform to this pattern
-        let pattern = Regex::new(r"^([[:alnum:]]+|([[:alnum:]]+[[:alnum:]-]*[[:alnum:]]+))$").unwrap();
+        let pattern = Regex::new("^([[:alnum:]]+|[[:alnum:]]+[[:alnum:]-]*[[:alnum:]]+)$").unwrap();
         let mut labels: Vec<&str> = domain.split('.').collect();
         // strip of the first dot from a domain to support fully qualified domain names
         if domain.ends_with(".") { labels.pop(); }
