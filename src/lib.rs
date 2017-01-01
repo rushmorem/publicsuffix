@@ -15,23 +15,23 @@
 //!
 //!     let domain = list.parse_domain("www.example.com").unwrap();
 //!     let tld = domain.root_domain().unwrap();
-//!     assert_eq!(tld, &String::from("example.com"));
+//!     assert_eq!(tld, "example.com");
 //!
 //!     let domain = list.parse_domain("www.食狮.中国").unwrap();
 //!     let tld = domain.root_domain().unwrap();
-//!     assert_eq!(tld, &String::from("食狮.中国"));
+//!     assert_eq!(tld, "食狮.中国");
 //!
 //!     let domain = list.parse_domain("www.xn--85x722f.xn--55qx5d.cn").unwrap();
 //!     let tld = domain.root_domain().unwrap();
-//!     assert_eq!(tld, &String::from("xn--85x722f.xn--55qx5d.cn"));
+//!     assert_eq!(tld, "xn--85x722f.xn--55qx5d.cn");
 //!
 //!     let domain = list.parse_domain("a.b.domain.biz").unwrap();
 //!     let suffix = domain.suffix().unwrap();
-//!     assert_eq!(suffix, &String::from("biz"));
+//!     assert_eq!(suffix, "biz");
 //!
 //!     let domain = list.parse_domain("a.b.example.uk.com").unwrap();
 //!     let suffix = domain.suffix().unwrap();
-//!     assert_eq!(suffix, &String::from("uk.com"));
+//!     assert_eq!(suffix, "uk.com");
 //! }
 
 #![recursion_limit = "1024"]
@@ -158,7 +158,7 @@ impl List {
         Self::from_url(OFFICIAL_URL)
     }
 
-    fn find_type(&self, typ: Type) -> Vec<&String> {
+    fn find_type(&self, typ: Type) -> Vec<&str> {
         self.rules.values()
             .fold(Vec::new(), |mut res, ref suffices| {
                 for suffix in *suffices {
@@ -171,17 +171,17 @@ impl List {
     }
 
     /// Gets a list of all ICANN domain suffices
-    pub fn icann(&self) -> Vec<&String> {
+    pub fn icann(&self) -> Vec<&str> {
         self.find_type(Type::Icann)
     }
 
     /// Gets a list of all private domain suffices
-    pub fn private(&self) -> Vec<&String> {
+    pub fn private(&self) -> Vec<&str> {
         self.find_type(Type::Private)
     }
 
     /// Gets a list of all domain suffices
-    pub fn all(&self) -> Vec<&String> {
+    pub fn all(&self) -> Vec<&str> {
         self.rules.values()
             .fold(Vec::new(), |mut res, ref suffices| {
                 for suffix in *suffices {
@@ -347,7 +347,7 @@ impl Domain {
     }
 
     /// Gets the root domain portion if any
-    pub fn root_domain(&self) -> Option<&String> {
+    pub fn root_domain(&self) -> Option<&str> {
         match self.registrable {
             Some(ref registrable) => Some(registrable),
             None => None,
@@ -355,7 +355,7 @@ impl Domain {
     }
 
     /// Gets the suffix if any
-    pub fn suffix(&self) -> Option<&String> {
+    pub fn suffix(&self) -> Option<&str> {
         match self.suffix {
             Some(ref suffix) => Some(suffix),
             None => None,
