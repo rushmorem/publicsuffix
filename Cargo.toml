@@ -10,7 +10,7 @@ keywords = ["tld", "gtld", "cctld", "domain", "psl"]
 authors = ["rushmorem <rushmore@webenchanter.com>"]
 
 [dependencies]
-reqwest = "0.2"
+hyper = "0.9"
 error-chain = "0.7"
 idna = "0.1"
 regex = "0.2"

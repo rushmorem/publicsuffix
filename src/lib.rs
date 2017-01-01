@@ -1,7 +1,6 @@
-//! The Public Suffix List Client Library
+//! Robust domain name parsing using the Public Suffix List
 //!
-//! This library allows you to easily and accurately validate
-//! or break down any given domain name.
+//! This library allows you to easily and accurately parse any given domain name.
 //!
 //! ## Examples
 //!
@@ -9,7 +8,7 @@
 //! extern crate publicsuffix;
 //!
 //! use publicsuffix::List;
-//! # use publicsuffix::errors::Result;
+//! # use publicsuffix::Result;
 //!
 //! # fn examples() -> Result<()> {
 //! let list = List::fetch()?;
@@ -33,21 +32,23 @@
 //! assert_eq!(domain.suffix(), Some("uk.com"));
 //!
 //! // You can also find out if this is an ICANN domain
-//! assert!(domain.is_icann());
+//! assert!(!domain.is_icann());
 //!
 //! // or a private one
-//! assert!(!domain.is_private());
+//! assert!(domain.is_private());
 //!
 //! // In any case if the domain's suffix is in the list
 //! // then this is definately a registrable domain name
 //! assert!(domain.has_known_suffix());
+//! # Ok(())
 //! # }
+//! # fn main() { examples().unwrap(); }
 
 #![recursion_limit = "1024"]
 
 #[macro_use]
 extern crate error_chain;
-extern crate reqwest;
+extern crate hyper;
 extern crate regex;
 extern crate idna;
 
@@ -59,11 +60,14 @@ mod tests;
 use std::io::Read;
 use std::fs::File;
 use std::path::Path;
+use std::time::Duration;
 use std::collections::HashMap;
 
-use errors::*;
+pub use errors::{Result, Error};
+
 use regex::Regex;
-use reqwest::IntoUrl;
+use errors::ErrorKind;
+use hyper::client::{IntoUrl, Client, Response};
 use idna::{domain_to_unicode, domain_to_ascii};
 
 #[derive(Debug)]
@@ -99,7 +103,14 @@ pub struct Domain {
     registrable: Option<String>,
 }
 
-const OFFICIAL_URL: &'static str = "https://publicsuffix.org/list/public_suffix_list.dat";
+fn request<U: IntoUrl>(url: U) -> Result<Response> {
+    let timeout = Duration::from_secs(2);
+    let mut client = Client::new();
+    client.set_read_timeout(Some(timeout));
+    client.set_write_timeout(Some(timeout));
+    client.get(url).send()
+        .map_err(|err| ErrorKind::Request(err).into())
+}
 
 impl List {
     fn append(&mut self, rule: &str, typ: Type) -> Result<()> {
@@ -150,9 +161,7 @@ impl List {
 
     /// Pull the list from a URL
     pub fn from_url<U: IntoUrl>(url: U) -> Result<List> {
-        reqwest::get(url)
-            .map_err(|err| ErrorKind::Request(err).into())
-            .and_then(Self::build)
+        request(url).and_then(Self::build)
     }
 
     /// Fetch the list from a local file
@@ -164,7 +173,11 @@ impl List {
 
     /// Pull the list from the official URL
     pub fn fetch() -> Result<List> {
-        Self::from_url(OFFICIAL_URL)
+        let official = "https://publicsuffix.org/list/public_suffix_list.dat";
+        let github = "https://raw.githubusercontent.com/publicsuffix/list/master/public_suffix_list.dat";
+
+        Self::from_url(official)
+            .or_else(|_| Self::from_url(github))
     }
 
     fn find_type(&self, typ: Type) -> Vec<&str> {

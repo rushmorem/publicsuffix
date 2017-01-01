@@ -2,7 +2,7 @@ extern crate rspec;
 
 use std::io::Read;
 
-use {List, reqwest};
+use {List, request};
 use self::rspec::context::rdescribe;
 
 macro_rules! pass {
@@ -37,7 +37,7 @@ fn list_behaviour() {
 
     rdescribe("the official test", |_| {
         let tests = "https://raw.githubusercontent.com/publicsuffix/list/master/tests/test_psl.txt";
-        let mut resp = reqwest::get(tests).unwrap();
+        let mut resp = request(tests).unwrap();
         let mut body = String::new();
         resp.read_to_string(&mut body).unwrap();
 

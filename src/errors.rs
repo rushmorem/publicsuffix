@@ -2,7 +2,7 @@
 
 error_chain! {
     foreign_links {
-        Request(::reqwest::Error);
+        Request(::hyper::Error);
         Io(::std::io::Error);
     }
 
