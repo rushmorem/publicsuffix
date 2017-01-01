@@ -200,16 +200,29 @@ impl List {
 impl Domain {
     /// Check if a domain has valid syntax
     pub fn has_valid_syntax(domain: &str) -> bool {
+        // we are explicitly checking for this here before calling `domain_to_ascii`
+        // because `domain_to_ascii` strips of leading dots so we won't be able to
+        // check for this later
         if domain.starts_with('.') { return false; }
+        // let's convert the domain to ascii early on so we can validate
+        // internationalised domain names as well
         let domain = match domain_to_ascii(domain) {
             Ok(domain) => domain,
             Err(_) => { return false; },
         };
-        let re = Regex::new(r"^(([A-Za-z0-9]+)|([A-Za-z0-9]+([A-Za-z0-9-]*[A-Za-z0-9]+)*))$").unwrap();
-        let labels: Vec<&str> = domain.split('.').collect();
-        for label in labels {
+        // all labels must conform to this pattern
+        let pattern = Regex::new(r"^(([A-Za-z0-9]+)|([A-Za-z0-9]+([A-Za-z0-9-]*[A-Za-z0-9]+)*))$").unwrap();
+        let mut labels: Vec<&str> = domain.split('.').collect();
+        // strip of the first dot from a domain to support fully qualified domain names
+        if domain.ends_with(".") { labels.pop(); }
+        labels.reverse();
+        for (i, label) in labels.iter().enumerate() {
+            // any label must be 63 characters or less
             if label.chars().count() > 63 { return false; }
-            if !re.is_match(label) { return false; }
+            // the tld must not be a number
+            if i == 0 && label.parse::<f64>().is_ok() { return false; }
+            // any label must only contain allowed characters
+            if !pattern.is_match(label) { return false; }
         }
         true
     }

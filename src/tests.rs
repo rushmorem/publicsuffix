@@ -5,6 +5,10 @@ use std::io::Read;
 use {List, reqwest};
 use self::rspec::context::rdescribe;
 
+macro_rules! pass {
+    () => { Ok(()) as Result<(), ()> }
+}
+
 #[test]
 fn list_behaviour() {
     let list = List::fetch().unwrap();
@@ -12,22 +16,22 @@ fn list_behaviour() {
     rdescribe("the list", |ctx| {
         ctx.it("should not be empty", || {
             assert!(!list.all().is_empty());
-            Ok(()) as Result<(), ()>
+            pass!()
         });
 
         ctx.it("should have ICANN domains", || {
             assert!(!list.icann().is_empty());
-            Ok(()) as Result<(), ()>
+            pass!()
         });
 
         ctx.it("should have private domains", || {
             assert!(!list.private().is_empty());
-            Ok(()) as Result<(), ()>
+            pass!()
         });
 
         ctx.it("should have at least 1000 domains", || {
             assert!(list.all().len() > 1000);
-            Ok(()) as Result<(), ()>
+            pass!()
         });
     });
 
@@ -89,19 +93,29 @@ fn list_behaviour() {
     });
 
     rdescribe("the domain", |ctx| {
+        ctx.it("should allow fully qualified domain names", || {
+            assert!(list.parse_domain("example.com.").is_ok());
+            pass!()
+        });
+
+        ctx.it("should not allow more than 1 trailing dots", || {
+            assert!(list.parse_domain("example.com..").is_err());
+            pass!()
+        });
+
         ctx.it("should not contain spaces", || {
             assert!(list.parse_domain("exa mple.com").is_err());
-            Ok(()) as Result<(), ()>
+            pass!()
         });
 
         ctx.it("should not start with a dash", || {
             assert!(list.parse_domain("-example.com").is_err());
-            Ok(()) as Result<(), ()>
+            pass!()
         });
 
         ctx.it("should not contain /", || {
             assert!(list.parse_domain("exa/mple.com").is_err());
-            Ok(()) as Result<(), ()>
+            pass!()
         });
 
         ctx.it("should not have a label > 63 characters", || {
@@ -111,7 +125,22 @@ fn list_behaviour() {
             }
             too_long_domain.push_str(".com");
             assert!(list.parse_domain(&too_long_domain).is_err());
-            Ok(()) as Result<(), ()>
+            pass!()
+        });
+
+        ctx.it("should not be an IPv4 address", || {
+            assert!(list.parse_domain("127.38.53.247").is_err());
+            pass!()
+        });
+
+        ctx.it("should not be an IPv6 address", || {
+            assert!(list.parse_domain("fd79:cdcb:38cc:9dd:f686:e06d:32f3:c123").is_err());
+            pass!()
+        });
+
+        ctx.it("should allow numbers only labels that are not the tld", || {
+            assert!(list.parse_domain("127.com").is_ok());
+            pass!()
         });
     });
 }
