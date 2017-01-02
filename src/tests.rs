@@ -36,7 +36,7 @@ fn list_behaviour() {
     });
 
     rdescribe("the official test", |_| {
-        let tests = "https://raw.githubusercontent.com/publicsuffix/list/master/tests/test_psl.txt";
+        let tests = "https://raw.githubusercontent.com/publicsuffix/list/master/tests/tests.txt";
         let mut resp = request(tests).unwrap();
         let mut body = String::new();
         resp.read_to_string(&mut body).unwrap();
@@ -45,19 +45,18 @@ fn list_behaviour() {
             match line {
                 line if line.starts_with("//") => { continue; }
                 line => {
-                    let test = line.trim();
-                    if test.is_empty() {
+                    let mut test = line.split_whitespace().peekable();
+                    if test.peek().is_none() {
                         continue;
                     }
-                    let test = test.replace("null", "'None'");
-                    let test: Vec<&str> = test.split("'").collect();
-                    let input = match test[1] {
-                        "None" => "",
-                        res => res,
+                    let input = match test.next() {
+                        Some("null") => "",
+                        Some(res) => res,
+                        None => { panic!(format!("line {} of the test file doesn't seem to be valid", i)); },
                     };
-                    let (expected_root, expected_suffix) = match test[3] {
-                        "None" => (None, None),
-                        root => {
+                    let (expected_root, expected_suffix) = match test.next() {
+                        Some("null") => (None, None),
+                        Some(root) => {
                             let suffix = {
                                 let parts: Vec<&str> = root.split('.').rev().collect();
                                 (&parts[..parts.len()-1]).iter().rev()
@@ -67,6 +66,7 @@ fn list_behaviour() {
                             };
                             (Some(root.to_string()), Some(suffix.to_string()))
                         },
+                        None => { panic!(format!("line {} of the test file doesn't seem to be valid", i)); },
                     };
                     let (found_root, found_suffix) = match list.parse_domain(input) {
                         Ok(domain) => {
