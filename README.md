@@ -6,15 +6,6 @@ This library uses Mozilla's [Public Suffix List](https://publicsuffix.org) to re
 
 If all you need is to check whether a domain is syntactically correct and do not need to utilise the list you can just use `Domain::has_valid_syntax` method. This method will reliably tell you if a domain has valid syntax whether or not it is an internationalised domain name (IDN). It also checks the length restrictions for each label, total number of labels and full length of domain name.
 
-## Dependancies
-
-This library uses [hyper](http://hyper.rs) to fetch the public suffix list via HTTPS. As such you will need to have the following libraries on your system in order to build it:-
-* gcc
-* openssl
-* make
-* cmake
-* zlib
-
 ## Examples
 
 ```rust
