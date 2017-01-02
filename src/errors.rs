@@ -1,14 +1,15 @@
 //! Errors returned by this library
 
+#[cfg(feature = "remote_list")]
 use std::net::TcpStream;
 
 error_chain! {
     foreign_links {
-        Request(::hyper::Error);
         Io(::std::io::Error);
-        HttpParse(::hyper::error::ParseError);
-        Tls(::native_tls::Error);
-        Handshake(::native_tls::HandshakeError<TcpStream>);
+        Request(::hyper::Error) #[cfg(feature = "remote_list")];
+        HttpParse(::hyper::error::ParseError) #[cfg(feature = "remote_list")];
+        Tls(::native_tls::Error) #[cfg(feature = "remote_list")];
+        Handshake(::native_tls::HandshakeError<TcpStream>) #[cfg(feature = "remote_list")];
     }
 
     errors {

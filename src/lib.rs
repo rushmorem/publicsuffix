@@ -4,14 +4,23 @@
 //!
 //! ## Examples
 //!
-//! ```
+//! ```rust,norun
 //! extern crate publicsuffix;
 //!
 //! use publicsuffix::List;
 //! # use publicsuffix::Result;
 //!
 //! # fn examples() -> Result<()> {
+//! // Fetch the list from the official URL,
+//! # #[cfg(feature = "remote_list")]
 //! let list = List::fetch()?;
+//!
+//! // from your own URL
+//! # #[cfg(feature = "remote_list")]
+//! let list = List::from_url("https://example.com/path/to/public_suffix_list.dat")?;
+//!
+//! // or from a local file.
+//! let list = List::from_path("/path/to/public_suffix_list.dat")?;
 //!
 //! // Using the list you can find out the root domain
 //! // or extension of any given domain name
@@ -42,34 +51,44 @@
 //! assert!(domain.has_known_suffix());
 //! # Ok(())
 //! # }
-//! # fn main() { examples().unwrap(); }
+//! # fn main() {}
+//! ```
 
 #![recursion_limit = "1024"]
 
 #[macro_use]
 extern crate error_chain;
+#[cfg(feature = "remote_list")]
 extern crate native_tls;
+#[cfg(feature = "remote_list")]
 extern crate hyper;
 extern crate regex;
 extern crate idna;
 
 pub mod errors;
 
+#[cfg(feature = "remote_list")]
 #[cfg(test)]
 mod tests;
 
 use std::fs::File;
 use std::path::Path;
+#[cfg(feature = "remote_list")]
 use std::time::Duration;
+#[cfg(feature = "remote_list")]
 use std::net::TcpStream;
-use std::io::{Read, Write};
+use std::io::Read;
+#[cfg(feature = "remote_list")]
+use std::io::Write;
 use std::collections::HashMap;
 
 pub use errors::{Result, Error};
 
 use regex::Regex;
 use errors::ErrorKind;
+#[cfg(feature = "remote_list")]
 use hyper::client::IntoUrl;
+#[cfg(feature = "remote_list")]
 use native_tls::TlsConnector;
 use idna::{domain_to_unicode, domain_to_ascii};
 
@@ -106,6 +125,7 @@ pub struct Domain {
     registrable: Option<String>,
 }
 
+#[cfg(feature = "remote_list")]
 fn request<U: IntoUrl>(u: U) -> Result<String> {
     let url = u.into_url()?;
     let addr = url.with_default_port(|_| Err(()))?;
@@ -177,13 +197,14 @@ impl List {
                 }
             }
         }
-        if list.rules.is_empty() {
+        if list.rules.is_empty() || list.icann().is_empty() || list.private().is_empty() {
             return Err(ErrorKind::InvalidList.into());
         }
         Ok(list)
     }
 
     /// Pull the list from a URL
+    #[cfg(feature = "remote_list")]
     pub fn from_url<U: IntoUrl>(url: U) -> Result<List> {
         request(url).and_then(Self::build)
     }
@@ -201,6 +222,7 @@ impl List {
     }
 
     /// Pull the list from the official URL
+    #[cfg(feature = "remote_list")]
     pub fn fetch() -> Result<List> {
         let official = "https://publicsuffix.org/list/public_suffix_list.dat";
         let github = "https://raw.githubusercontent.com/publicsuffix/list/master/public_suffix_list.dat";
