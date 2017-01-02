@@ -35,7 +35,8 @@ let list = List::fetch()?;
 // from your own URL
 let list = List::from_url("https://example.com/path/to/public_suffix_list.dat")?;
 
-// or from a local file.
+// or from a local file. You can download the list from
+// "https://publicsuffix.org/list/public_suffix_list.dat".
 let list = List::from_path("/path/to/public_suffix_list.dat")?;
 
 // Using the list you can find out the root domain
