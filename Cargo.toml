@@ -10,7 +10,8 @@ keywords = ["tld", "gtld", "cctld", "domain", "psl"]
 authors = ["rushmorem <rushmore@webenchanter.com>"]
 
 [dependencies]
-hyper = "0.9"
+hyper = { version = "0.9", default-features = false, features = [] }
+native-tls = "0.1"
 error-chain = "0.7"
 idna = "0.1"
 regex = "0.2"

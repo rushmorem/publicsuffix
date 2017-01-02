@@ -1,7 +1,5 @@
 extern crate rspec;
 
-use std::io::Read;
-
 use {List, request};
 use self::rspec::context::rdescribe;
 
@@ -37,14 +35,16 @@ fn list_behaviour() {
 
     rdescribe("the official test", |_| {
         let tests = "https://raw.githubusercontent.com/publicsuffix/list/master/tests/tests.txt";
-        let mut resp = request(tests).unwrap();
-        let mut body = String::new();
-        resp.read_to_string(&mut body).unwrap();
+        let body = request(tests).unwrap();
+
+        let mut parse = false;
 
         for (i, line) in body.lines().enumerate() {
             match line {
+                line if line.trim().is_empty() => { parse = true; continue; }
                 line if line.starts_with("//") => { continue; }
                 line => {
+                    if !parse { continue; }
                     let mut test = line.split_whitespace().peekable();
                     if test.peek().is_none() {
                         continue;

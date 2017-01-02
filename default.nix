@@ -2,5 +2,6 @@ with import <nixpkgs> {};
 
 stdenv.mkDerivation {
   name = "publicsuffix";
-  buildInputs = [ gcc openssl gnumake cmake zlib ];
+  OPENSSL_DIR = "${openssl.dev}";
+  OPENSSL_LIB_DIR = "${openssl.out}/lib";
 }

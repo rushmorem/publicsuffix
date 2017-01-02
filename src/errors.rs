@@ -1,12 +1,21 @@
 //! Errors returned by this library
 
+use std::net::TcpStream;
+
 error_chain! {
     foreign_links {
         Request(::hyper::Error);
         Io(::std::io::Error);
+        HttpParse(::hyper::error::ParseError);
+        Tls(::native_tls::Error);
+        Handshake(::native_tls::HandshakeError<TcpStream>);
     }
 
     errors {
+        InvalidList { }
+
+        InvalidUrl { }
+
         InvalidRule(t: String) {
             description("invalid rule")
             display("invalid rule: '{}'", t)

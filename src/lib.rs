@@ -48,6 +48,7 @@
 
 #[macro_use]
 extern crate error_chain;
+extern crate native_tls;
 extern crate hyper;
 extern crate regex;
 extern crate idna;
@@ -57,17 +58,19 @@ pub mod errors;
 #[cfg(test)]
 mod tests;
 
-use std::io::Read;
 use std::fs::File;
 use std::path::Path;
 use std::time::Duration;
+use std::net::TcpStream;
+use std::io::{Read, Write};
 use std::collections::HashMap;
 
 pub use errors::{Result, Error};
 
 use regex::Regex;
 use errors::ErrorKind;
-use hyper::client::{IntoUrl, Client, Response};
+use hyper::client::IntoUrl;
+use native_tls::TlsConnector;
 use idna::{domain_to_unicode, domain_to_ascii};
 
 #[derive(Debug)]
@@ -103,13 +106,32 @@ pub struct Domain {
     registrable: Option<String>,
 }
 
-fn request<U: IntoUrl>(url: U) -> Result<Response> {
+fn request<U: IntoUrl>(u: U) -> Result<String> {
+    let url = u.into_url()?;
+    let addr = url.with_default_port(|_| Err(()))?;
+    let host = match url.host_str() {
+        Some(host) => host,
+        None => { return Err(ErrorKind::InvalidUrl.into()); }
+    };
+    let data = format!("GET {} HTTP/1.0\r\nHost: {}\r\n\r\n", url.path(), host);
+    let stream = TcpStream::connect(addr)?;
     let timeout = Duration::from_secs(2);
-    let mut client = Client::new();
-    client.set_read_timeout(Some(timeout));
-    client.set_write_timeout(Some(timeout));
-    client.get(url).send()
-        .map_err(|err| ErrorKind::Request(err).into())
+    stream.set_read_timeout(Some(timeout))?;
+    stream.set_write_timeout(Some(timeout))?;
+
+    let mut res = String::new();
+
+    if url.scheme() == "https" {
+        let connector = TlsConnector::builder()?.build()?;
+        let mut stream = connector.connect(host, stream)?;
+        stream.write_all(data.as_bytes())?;
+        stream.read_to_string(&mut res)?;
+    } else {
+        let mut stream = stream;
+        stream.write_all(data.as_bytes())?;
+        stream.read_to_string(&mut res)?;
+    }
+    Ok(res)
 }
 
 impl List {
@@ -131,31 +153,33 @@ impl List {
             })
     }
 
-    fn build<R: Read>(mut reader: R) -> Result<List> {
-        let mut res = String::new();
-        reader.read_to_string(&mut res)?;
-
-        let mut typ = Type::Icann;
-
+    fn build(res: String) -> Result<List> {
+        let mut typ = None;
         let mut list = List {
             rules: HashMap::new(),
         };
-
         for line in res.lines() {
             match line {
-                line if line.contains("BEGIN ICANN DOMAINS") => { typ = Type::Icann; }
-                line if line.contains("BEGIN PRIVATE DOMAINS") => { typ = Type::Private; }
+                line if line.contains("BEGIN ICANN DOMAINS") => { typ = Some(Type::Icann); }
+                line if line.contains("BEGIN PRIVATE DOMAINS") => { typ = Some(Type::Private); }
                 line if line.starts_with("//") => { continue; }
                 line => {
-                    let rule = match line.split_whitespace().next() {
-                        Some(rule) => rule,
-                        None => continue,
-                    };
-                    list.append(rule, typ)?;
+                    match typ {
+                        Some(typ) => {
+                            let rule = match line.split_whitespace().next() {
+                                Some(rule) => rule,
+                                None => continue,
+                            };
+                            list.append(rule, typ)?;
+                        }
+                        None => { continue; }
+                    }
                 }
             }
         }
-
+        if list.rules.is_empty() {
+            return Err(ErrorKind::InvalidList.into());
+        }
         Ok(list)
     }
 
@@ -168,6 +192,11 @@ impl List {
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<List> {
         File::open(path)
             .map_err(|err| ErrorKind::Io(err).into())
+            .and_then(|mut data| {
+                let mut res = String::new();
+                data.read_to_string(&mut res)?;
+                Ok(res)
+            })
             .and_then(Self::build)
     }
 
