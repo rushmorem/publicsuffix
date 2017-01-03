@@ -152,6 +152,12 @@ impl<'a> IntoUrl for &'a str {
     }
 }
 
+impl<'a> IntoUrl for &'a String {
+    fn into_url(self) -> Result<Url> {
+        Ok(Url::parse(self)?)
+    }
+}
+
 impl IntoUrl for String {
     fn into_url(self) -> Result<Url> {
         Ok(Url::parse(&self)?)
@@ -327,10 +333,29 @@ impl List {
     }
 
     /// Extracts Host from a URL
-    pub fn parse_url(&self, url: &str) -> Result<Host> {
-        match Url::parse(url)?.host_str() {
+    pub fn parse_url<U: IntoUrl>(&self, url: U) -> Result<Host> {
+        match url.into_url()?.host_str() {
             Some(host) => self.parse_host(host),
             None => Err(ErrorKind::NoHost.into()),
+        }
+    }
+
+    /// Parses any arbitrary string
+    ///
+    /// Effectively this means that the string is either a URL or a host.
+    pub fn parse_str(&self, string: &str) -> Result<Host> {
+        if string.contains("//") {
+            if string.starts_with("//") {
+                // If a string starts with `//` it might be a protocol
+                // relative URL. Since we really do not care about the
+                // protocol anyway, let's just assume it's `https` to
+                // give it a fair chance with `Url::parse`.
+                self.parse_url(&format!("https:{}", string))
+            } else {
+                self.parse_url(string)
+            }
+        } else {
+            self.parse_host(string)
         }
     }
 }

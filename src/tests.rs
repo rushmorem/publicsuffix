@@ -220,5 +220,20 @@ fn list_behaviour() {
             assert!(list.parse_url("https://127.38.53.247:8080/list/").unwrap().is_ip());
             pass!()
         });
+
+        ctx.it("can be parsed from a standard URL using `parse_str`", || {
+            assert!(list.parse_str("https://127.38.53.247:8080/list/").unwrap().is_ip());
+            pass!()
+        });
+
+        ctx.it("can be parsed from a protocol-relative URL using `parse_str`", || {
+            assert!(list.parse_str("//127.38.53.247:8080/list/").unwrap().is_ip());
+            pass!()
+        });
+
+        ctx.it("can be parsed from a non-URL using `parse_str`", || {
+            assert!(list.parse_str("example.com").unwrap().is_domain());
+            pass!()
+        });
     });
 }
