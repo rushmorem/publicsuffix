@@ -19,6 +19,8 @@ error_chain! {
 
         InvalidUrl { }
 
+        InvalidHost { }
+
         InvalidRule(t: String) {
             description("invalid rule")
             display("invalid rule: '{}'", t)

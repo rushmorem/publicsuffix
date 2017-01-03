@@ -81,6 +81,8 @@ use std::io::Read;
 #[cfg(feature = "remote_list")]
 use std::io::Write;
 use std::collections::HashMap;
+use std::net::IpAddr;
+use std::str::FromStr;
 
 pub use errors::{Result, Error};
 
@@ -123,6 +125,15 @@ pub struct Domain {
     typ: Option<Type>,
     suffix: Option<String>,
     registrable: Option<String>,
+}
+
+/// Holds information about a particular host
+///
+/// This is created by `List::parse_host`.
+#[derive(Debug, Clone)]
+pub struct Host {
+    ip: Option<IpAddr>,
+    domain: Option<Domain>,
 }
 
 #[cfg(feature = "remote_list")]
@@ -283,6 +294,51 @@ impl List {
     /// Parses a domain using the list
     pub fn parse_domain(&self, domain: &str) -> Result<Domain> {
         Domain::parse(domain, self)
+    }
+
+    /// Parses a host using the list
+    ///
+    /// A host, for the purposes of this library, is either
+    /// an IP address or a domain name.
+    pub fn parse_host(&self, host: &str) -> Result<Host> {
+        Host::parse(host, self)
+    }
+}
+
+impl Host {
+    fn parse(host: &str, list: &List) -> Result<Host> {
+        if let Ok(ip) = IpAddr::from_str(host) {
+            return Ok(Host {
+                ip: Some(ip),
+                domain: None,
+            });
+        }
+        if let Ok(domain) = Domain::parse(host, list) {
+            return Ok(Host {
+                ip: None,
+                domain: Some(domain),
+            });
+        }
+        Err(ErrorKind::InvalidHost.into())
+    }
+
+    pub fn ip(&self) -> Option<IpAddr> {
+        self.ip
+    }
+
+    pub fn domain(&self) -> Option<&Domain> {
+        if let Some(ref domain) = self.domain {
+            return Some(domain)
+        }
+        None
+    }
+
+    pub fn is_ip(&self) -> bool {
+        self.ip.is_some()
+    }
+
+    pub fn is_domain(&self) -> bool {
+        self.domain.is_some()
     }
 }
 
