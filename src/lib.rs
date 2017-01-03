@@ -141,16 +141,21 @@ fn request<U: IntoUrl>(u: U) -> Result<String> {
 
     let mut res = String::new();
 
-    if url.scheme() == "https" {
-        let connector = TlsConnector::builder()?.build()?;
-        let mut stream = connector.connect(host, stream)?;
-        stream.write_all(data.as_bytes())?;
-        stream.read_to_string(&mut res)?;
-    } else {
-        let mut stream = stream;
-        stream.write_all(data.as_bytes())?;
-        stream.read_to_string(&mut res)?;
+    match url.scheme() {
+        scheme if scheme == "https" => {
+            let connector = TlsConnector::builder()?.build()?;
+            let mut stream = connector.connect(host, stream)?;
+            stream.write_all(data.as_bytes())?;
+            stream.read_to_string(&mut res)?;
+        }
+        scheme if scheme == "http" => {
+            let mut stream = stream;
+            stream.write_all(data.as_bytes())?;
+            stream.read_to_string(&mut res)?;
+        }
+        _ => { return Err(ErrorKind::UnsupportedScheme.into()); }
     }
+
     Ok(res)
 }
 

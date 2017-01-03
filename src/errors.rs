@@ -13,6 +13,8 @@ error_chain! {
     }
 
     errors {
+        UnsupportedScheme { }
+
         InvalidList { }
 
         InvalidUrl { }
