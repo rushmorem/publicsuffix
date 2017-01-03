@@ -93,6 +93,9 @@ use native_tls::TlsConnector;
 use idna::{domain_to_unicode, domain_to_ascii};
 use url::Url;
 
+/// The official URL of the list
+pub const LIST_URL: &'static str = "https://publicsuffix.org/list/public_suffix_list.dat";
+
 #[derive(Debug)]
 struct Suffix {
     rule: String,
@@ -279,10 +282,11 @@ impl List {
     /// Pull the list from the official URL
     #[cfg(feature = "remote_list")]
     pub fn fetch() -> Result<List> {
-        let official = "https://publicsuffix.org/list/public_suffix_list.dat";
         let github = "https://raw.githubusercontent.com/publicsuffix/list/master/public_suffix_list.dat";
 
-        Self::from_url(official)
+        Self::from_url(LIST_URL)
+            // Fallback to the Github repo if the official link
+            // is down for some reason.
             .or_else(|_| Self::from_url(github))
     }
 
