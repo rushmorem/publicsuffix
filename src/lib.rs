@@ -221,6 +221,17 @@ impl List {
             .and_then(Self::build)
     }
 
+    /// Build the list from the result of anything that implements `std::io::Read`
+    ///
+    /// If you don't already have your list on the filesystem but want to use your
+    /// own library to fetch the list you can use this method so you don't have to
+    /// save it first.
+    pub fn from_reader<R: Read>(mut reader: R) -> Result<List> {
+        let mut res = String::new();
+        reader.read_to_string(&mut res)?;
+        Self::build(res)
+    }
+
     /// Pull the list from the official URL
     #[cfg(feature = "remote_list")]
     pub fn fetch() -> Result<List> {
