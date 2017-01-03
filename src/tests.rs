@@ -92,7 +92,7 @@ fn list_behaviour() {
         }
     });
 
-    rdescribe("the domain", |ctx| {
+    rdescribe("a domain", |ctx| {
         ctx.it("should allow fully qualified domain names", || {
             assert!(list.parse_domain("example.com.").is_ok());
             pass!()
@@ -103,6 +103,11 @@ fn list_behaviour() {
             pass!()
         });
 
+        ctx.it("should not have empty labels", || {
+            assert!(list.parse_domain("exa..mple.com").is_err());
+            pass!()
+        });
+
         ctx.it("should not contain spaces", || {
             assert!(list.parse_domain("exa mple.com").is_err());
             pass!()
@@ -110,6 +115,12 @@ fn list_behaviour() {
 
         ctx.it("should not start with a dash", || {
             assert!(list.parse_domain("-example.com").is_err());
+            pass!()
+        });
+
+
+        ctx.it("should not end with a dash", || {
+            assert!(list.parse_domain("example-.com").is_err());
             pass!()
         });
 
@@ -160,6 +171,53 @@ fn list_behaviour() {
             }
             too_many_chars_domain.push_str(".com");
             assert!(list.parse_domain(&too_many_chars_domain).is_err());
+            pass!()
+        });
+    });
+
+    rdescribe("a host", |ctx| {
+        ctx.it("can be an IPv4 address", || {
+            assert!(list.parse_host("127.38.53.247").is_ok());
+            pass!()
+        });
+
+        ctx.it("can be an IPv6 address", || {
+            assert!(list.parse_host("fd79:cdcb:38cc:9dd:f686:e06d:32f3:c123").is_ok());
+            pass!()
+        });
+
+        ctx.it("can be a domain name", || {
+            assert!(list.parse_host("example.com").is_ok());
+            pass!()
+        });
+
+        ctx.it("cannot be neither an IP address nor a domain name", || {
+            assert!(list.parse_host("23.56").is_err());
+            pass!()
+        });
+
+        ctx.it("an IPv4 address should parse into an IP object", || {
+            assert!(list.parse_host("127.38.53.247").unwrap().is_ip());
+            pass!()
+        });
+
+        ctx.it("an IPv6 address should parse into an IP object", || {
+            assert!(list.parse_host("fd79:cdcb:38cc:9dd:f686:e06d:32f3:c123").unwrap().is_ip());
+            pass!()
+        });
+
+        ctx.it("a domain name should parse into a domain object", || {
+            assert!(list.parse_host("example.com").unwrap().is_domain());
+            pass!()
+        });
+
+        ctx.it("can be parsed from a URL with a domain as hostname", || {
+            assert!(list.parse_url("https://publicsuffix.org/list/").unwrap().is_domain());
+            pass!()
+        });
+
+        ctx.it("can be parsed from a URL with a domain as hostname", || {
+            assert!(list.parse_url("https://127.38.53.247:8080/list/").unwrap().is_ip());
             pass!()
         });
     });

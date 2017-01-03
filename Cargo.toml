@@ -1,7 +1,7 @@
 [package]
 name = "publicsuffix"
 description = "A robust and reliable library for parsing domain names"
-version = "1.0.2"
+version = "1.1.0"
 license = "MIT/Apache-2.0"
 repository = "https://github.com/rushmorem/publicsuffix"
 documentation = "https://docs.rs/publicsuffix"
@@ -11,17 +11,13 @@ authors = ["rushmorem <rushmore@webenchanter.com>"]
 
 [features]
 default = ["remote_list"]
-remote_list = ["hyper", "native-tls"]
+remote_list = ["native-tls"]
 
 [dependencies]
 error-chain = "0.7"
 idna = "0.1"
 regex = "0.2"
-
-[dependencies.hyper]
-version = "0.9"
-default-features = false
-optional = true
+url = "1.2"
 
 [dependencies.native-tls]
 version = "0.1"

@@ -60,10 +60,9 @@
 extern crate error_chain;
 #[cfg(feature = "remote_list")]
 extern crate native_tls;
-#[cfg(feature = "remote_list")]
-extern crate hyper;
 extern crate regex;
 extern crate idna;
+extern crate url;
 
 pub mod errors;
 
@@ -83,16 +82,16 @@ use std::io::Write;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
+use std::fmt;
 
 pub use errors::{Result, Error};
 
 use regex::Regex;
 use errors::ErrorKind;
 #[cfg(feature = "remote_list")]
-use hyper::client::IntoUrl;
-#[cfg(feature = "remote_list")]
 use native_tls::TlsConnector;
 use idna::{domain_to_unicode, domain_to_ascii};
+use url::Url;
 
 #[derive(Debug)]
 struct Suffix {
@@ -131,9 +130,32 @@ pub struct Domain {
 ///
 /// This is created by `List::parse_host`.
 #[derive(Debug, Clone)]
-pub struct Host {
-    ip: Option<IpAddr>,
-    domain: Option<Domain>,
+pub enum Host {
+    Ip(IpAddr),
+    Domain(Domain),
+}
+
+/// Converts a type into a Url object
+pub trait IntoUrl {
+    fn into_url(self) -> Result<Url>;
+}
+
+impl IntoUrl for Url {
+    fn into_url(self) -> Result<Url> {
+        Ok(self)
+    }
+}
+
+impl<'a> IntoUrl for &'a str {
+    fn into_url(self) -> Result<Url> {
+        Ok(Url::parse(self)?)
+    }
+}
+
+impl IntoUrl for String {
+    fn into_url(self) -> Result<Url> {
+        Ok(Url::parse(&self)?)
+    }
 }
 
 #[cfg(feature = "remote_list")]
@@ -142,7 +164,7 @@ fn request<U: IntoUrl>(u: U) -> Result<String> {
     let addr = url.with_default_port(|_| Err(()))?;
     let host = match url.host_str() {
         Some(host) => host,
-        None => { return Err(ErrorKind::InvalidUrl.into()); }
+        None => { return Err(ErrorKind::NoHost.into()); }
     };
     let data = format!("GET {} HTTP/1.0\r\nHost: {}\r\n\r\n", url.path(), host);
     let stream = TcpStream::connect(addr)?;
@@ -303,42 +325,50 @@ impl List {
     pub fn parse_host(&self, host: &str) -> Result<Host> {
         Host::parse(host, self)
     }
+
+    /// Extracts Host from a URL
+    pub fn parse_url(&self, url: &str) -> Result<Host> {
+        match Url::parse(url)?.host_str() {
+            Some(host) => self.parse_host(host),
+            None => Err(ErrorKind::NoHost.into()),
+        }
+    }
 }
 
 impl Host {
     fn parse(host: &str, list: &List) -> Result<Host> {
         if let Ok(ip) = IpAddr::from_str(host) {
-            return Ok(Host {
-                ip: Some(ip),
-                domain: None,
-            });
+            return Ok(Host::Ip(ip));
         }
         if let Ok(domain) = Domain::parse(host, list) {
-            return Ok(Host {
-                ip: None,
-                domain: Some(domain),
-            });
+            return Ok(Host::Domain(domain));
         }
         Err(ErrorKind::InvalidHost.into())
     }
 
-    pub fn ip(&self) -> Option<IpAddr> {
-        self.ip
-    }
-
-    pub fn domain(&self) -> Option<&Domain> {
-        if let Some(ref domain) = self.domain {
-            return Some(domain)
-        }
-        None
-    }
-
+    /// A convenient method to simply check if a host is an IP address
     pub fn is_ip(&self) -> bool {
-        self.ip.is_some()
+        if let &Host::Ip(_) = self {
+            return true;
+        }
+        false
     }
 
+    /// A convenient method to simply check if a host is a domain name
     pub fn is_domain(&self) -> bool {
-        self.domain.is_some()
+        if let &Host::Domain(_) = self {
+            return true;
+        }
+        false
+    }
+}
+
+impl fmt::Display for Host {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &Host::Ip(ref ip) => write!(f, "{}", ip),
+            &Host::Domain(ref domain) => write!(f, "{}", domain),
+        }
     }
 }
 
@@ -539,5 +569,11 @@ impl Domain {
     /// check but fall back to a DNS lookup if it returns false.
     pub fn has_known_suffix(&self) -> bool {
         self.typ.is_some()
+    }
+}
+
+impl fmt::Display for Domain {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.full.trim_right_matches(".").to_lowercase())
     }
 }

@@ -17,8 +17,10 @@ version = "1.0"
 # This crate exposes the methods `List::fetch` and `List::from_url` as a
 # feature named "remote_list". This feature is on by default. If you have
 # the public suffix list on your local filesystem or you would like
-# to fetch this list on your own you can disable this feature and fetch
-# your list using `List::from_path`. To disable, uncomment the line below:
+# to fetch this list on your own you can disable this feature and build
+# the list using `List::from_path` or `List::from_reader` respectively.
+#
+# To disable, uncomment the line below:
 # default-features = false
 ```
 

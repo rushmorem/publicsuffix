@@ -6,8 +6,7 @@ use std::net::TcpStream;
 error_chain! {
     foreign_links {
         Io(::std::io::Error);
-        Request(::hyper::Error) #[cfg(feature = "remote_list")];
-        HttpParse(::hyper::error::ParseError) #[cfg(feature = "remote_list")];
+        Url(::url::ParseError);
         Tls(::native_tls::Error) #[cfg(feature = "remote_list")];
         Handshake(::native_tls::HandshakeError<TcpStream>) #[cfg(feature = "remote_list")];
     }
@@ -17,7 +16,7 @@ error_chain! {
 
         InvalidList { }
 
-        InvalidUrl { }
+        NoHost { }
 
         InvalidHost { }
 
