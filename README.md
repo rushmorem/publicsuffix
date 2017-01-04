@@ -12,7 +12,7 @@ Add this crate to your `Cargo.toml`:
 
 ```toml
 [dependencies.publicsuffix]
-version = "1.2"
+version = "1.3"
 
 # This crate exposes the methods `List::fetch` and `List::from_url` as a
 # feature named "remote_list". This feature is on by default. If you have
