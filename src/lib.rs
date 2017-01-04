@@ -380,7 +380,7 @@ impl List {
     // https://html.spec.whatwg.org/multipage/forms.html#valid-e-mail-address
     // https://hackernoon.com/the-100-correct-way-to-validate-email-addresses-7c4818f24643#.pgcir4z3e
     pub fn parse_email(&self, address: &str) -> Result<Host> {
-        let mut parts = address.trim().rsplitn(2, "@");
+        let mut parts = address.rsplitn(2, "@");
         let host = match parts.next() {
             Some(host) => host,
             None => { return Err(ErrorKind::InvalidEmail.into()); }
@@ -392,7 +392,7 @@ impl List {
         if local.starts_with(".")
             || local.ends_with(".")
             || local.chars().count() > 64
-            || format!("{}@{}", local, host).chars().count() > 254
+            || address.chars().count() > 254
         {
             return Err(ErrorKind::InvalidEmail.into());
         }
@@ -414,8 +414,7 @@ impl List {
 }
 
 impl Host {
-    fn parse(host: &str, list: &List) -> Result<Host> {
-        let mut host = host.trim();
+    fn parse(mut host: &str, list: &List) -> Result<Host> {
         if let Ok(domain) = Domain::parse(host, list) {
             return Ok(Host::Domain(domain));
         }
@@ -597,8 +596,8 @@ impl Domain {
             return Err(ErrorKind::InvalidDomain(domain.into()).into());
         }
         let input = domain;
-        let domain = input.trim().trim_right_matches('.');
-        let (domain, res) = domain_to_unicode(domain);
+        //let domain = input.trim().trim_right_matches('.');
+        let (domain, res) = domain_to_unicode(input);
         if let Err(errors) = res {
             return Err(ErrorKind::Uts46(errors).into());
         }
