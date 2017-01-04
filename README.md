@@ -69,3 +69,14 @@ assert!(domain.is_private());
 // then this is definately a registrable domain name
 assert!(domain.has_known_suffix());
 ```
+
+## Use Cases
+
+For those who work with domain names the use cases of this library are plenty. [publicsuffix.org/learn](https://publicsuffix.org/learn/) lists quite a few. For the sake of brevity, I'm not going to repeat them here. I work for a domain registrar so we make good use of this library. Here are some of the ways this library can be used:-
+
+* Validating domain names. This one is probably obvious. If a [Domain::has_known_suffix](https://docs.rs/publicsuffix/*/publicsuffix/struct.Domain.html#method.has_known_suffix) you can be absolutely sure this is a valid domain name. A regex expression is simply not robust enough.
+* Validating email addresses. You can utilise this library to validate email addresses in a robust and reliable manner before resorting to more expensive (DNS checks) or less convenient (sending confirmation emails) ways.
+* Blacklisting or whitelisting domain names and email addresses. You can't just blindly do this without knowing the actual registrable domain name otherwise you risk being too restrictive or too lenient. Bad news either way...
+* Extracting the registrable part of a domain name so you can check whether the domain is registered or not.
+* Storing details about a domain name in a DBMS using the registrable part of a domain name as the primary key.
+* Like my company, a registrar or similar organisation can draft their own list of domain extensions they support, following the same specs as the original list, and then use this library to check whether a requested domain name is actually supported.
