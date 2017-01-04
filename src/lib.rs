@@ -60,6 +60,8 @@
 extern crate error_chain;
 #[cfg(feature = "remote_list")]
 extern crate native_tls;
+#[macro_use]
+extern crate lazy_static;
 extern crate regex;
 extern crate idna;
 extern crate url;
@@ -136,6 +138,10 @@ pub struct Domain {
 pub enum Host {
     Ip(IpAddr),
     Domain(Domain),
+}
+
+lazy_static! {
+    static ref LABEL: Regex = Regex::new(r"^([[:alnum:]]+|[[:alnum:]]+[[:alnum:]-]*[[:alnum:]]+)$").unwrap();
 }
 
 /// Converts a type into a Url object
@@ -244,7 +250,7 @@ impl List {
                 }
             }
         }
-        if list.rules.is_empty() || list.icann().is_empty() || list.private().is_empty() {
+        if list.rules.is_empty() || list.all().is_empty() {
             return Err(ErrorKind::InvalidList.into());
         }
         Ok(list)
@@ -277,6 +283,15 @@ impl List {
         let mut res = String::new();
         reader.read_to_string(&mut res)?;
         Self::build(res)
+    }
+
+    /// Build the list from a string
+    ///
+    /// The list doesn't always have to come from a file. You can maintain your own
+    /// list, say in a DBMS. You can then pull it at runtime and build the list from
+    /// the resulting String.
+    pub fn from_string(string: String) -> Result<List> {
+        Self::build(string)
     }
 
     /// Pull the list from the official URL
@@ -338,26 +353,60 @@ impl List {
 
     /// Extracts Host from a URL
     pub fn parse_url<U: IntoUrl>(&self, url: U) -> Result<Host> {
-        match url.into_url()?.host_str() {
-            Some(host) => self.parse_host(host),
-            None => Err(ErrorKind::NoHost.into()),
+        let url = url.into_url()?;
+        match url.scheme() {
+            "mailto" => {
+                match url.host_str() {
+                    Some(host) => self.parse_email(&format!("{}@{}", url.username(), host)),
+                    None => Err(ErrorKind::InvalidEmail.into()),
+                }
+            }
+            _ => {
+                match url.host_str() {
+                    Some(host) => self.parse_host(host),
+                    None => Err(ErrorKind::NoHost.into()),
+                }
+            }
         }
+    }
+
+    /// Extracts Host from an email address
+    ///
+    /// This method can also be used, simply to validate an email address.
+    /// If it returns an error, the email address is not valid.
+    // https://en.wikipedia.org/wiki/Email_address#Syntax
+    // https://en.wikipedia.org/wiki/International_email#Email_addresses
+    // http://girders.org/blog/2013/01/31/dont-rfc-validate-email-addresses/
+    // https://html.spec.whatwg.org/multipage/forms.html#valid-e-mail-address
+    // https://hackernoon.com/the-100-correct-way-to-validate-email-addresses-7c4818f24643#.pgcir4z3e
+    pub fn parse_email(&self, address: &str) -> Result<Host> {
+        let mut parts = address.trim().rsplitn(2, "@");
+        let host = match parts.next() {
+            Some(host) => host,
+            None => { return Err(ErrorKind::InvalidEmail.into()); }
+        };
+        let local = match parts.next() {
+            Some(local) => local,
+            None => { return Err(ErrorKind::InvalidEmail.into()); }
+        };
+        if local.starts_with(".")
+            || local.ends_with(".")
+            || local.chars().count() > 64
+            || format!("{}@{}", local, host).chars().count() > 254
+        {
+            return Err(ErrorKind::InvalidEmail.into());
+        }
+        self.parse_host(host)
     }
 
     /// Parses any arbitrary string
     ///
-    /// Effectively this means that the string is either a URL or a host.
+    /// Effectively this means that the string is either a URL, an email address or a host.
     pub fn parse_str(&self, string: &str) -> Result<Host> {
-        if string.contains("//") {
-            if string.starts_with("//") {
-                // If a string starts with `//` it might be a protocol
-                // relative URL. Since we really do not care about the
-                // protocol anyway, let's just assume it's `https` to
-                // give it a fair chance with `Url::parse`.
-                self.parse_url(&format!("https:{}", string))
-            } else {
-                self.parse_url(string)
-            }
+        if string.contains("://") {
+            self.parse_url(string)
+        } else if string.contains("@") {
+            self.parse_email(string)
         } else {
             self.parse_host(string)
         }
@@ -366,11 +415,21 @@ impl List {
 
 impl Host {
     fn parse(host: &str, list: &List) -> Result<Host> {
-        if let Ok(ip) = IpAddr::from_str(host) {
-            return Ok(Host::Ip(ip));
-        }
+        let mut host = host.trim();
         if let Ok(domain) = Domain::parse(host, list) {
             return Ok(Host::Domain(domain));
+        }
+        if host.starts_with("[") 
+            && !host.starts_with("[[")
+            && host.ends_with("]")
+            && !host.ends_with("]]")
+        {
+            host = host
+                .trim_left_matches("[")
+                .trim_right_matches("]");
+        };
+        if let Ok(ip) = IpAddr::from_str(host) {
+            return Ok(Host::Ip(ip));
         }
         Err(ErrorKind::InvalidHost.into())
     }
@@ -422,8 +481,6 @@ impl Domain {
             }
             Err(_) => { return false; }
         };
-        // all labels must conform to this pattern
-        let pattern = Regex::new("^([[:alnum:]]+|[[:alnum:]]+[[:alnum:]-]*[[:alnum:]]+)$").unwrap();
         let mut labels: Vec<&str> = domain.split('.').collect();
         // strip of the first dot from a domain to support fully qualified domain names
         if domain.ends_with(".") { labels.pop(); }
@@ -436,7 +493,7 @@ impl Domain {
             // the tld must not be a number
             if i == 0 && label.parse::<f64>().is_ok() { return false; }
             // any label must only contain allowed characters
-            if !pattern.is_match(label) { return false; }
+            if !LABEL.is_match(label) { return false; }
         }
         true
     }

@@ -216,23 +216,54 @@ fn list_behaviour() {
             pass!()
         });
 
-        ctx.it("can be parsed from a URL with a domain as hostname", || {
+        ctx.it("can be parsed from a URL with an IP address as hostname", || {
             assert!(list.parse_url("https://127.38.53.247:8080/list/").unwrap().is_ip());
             pass!()
         });
 
-        ctx.it("can be parsed from a standard URL using `parse_str`", || {
+        ctx.it("can be parsed from a URL using `parse_str`", || {
             assert!(list.parse_str("https://127.38.53.247:8080/list/").unwrap().is_ip());
-            pass!()
-        });
-
-        ctx.it("can be parsed from a protocol-relative URL using `parse_str`", || {
-            assert!(list.parse_str("//127.38.53.247:8080/list/").unwrap().is_ip());
             pass!()
         });
 
         ctx.it("can be parsed from a non-URL using `parse_str`", || {
             assert!(list.parse_str("example.com").unwrap().is_domain());
+            pass!()
+        });
+    });
+
+    rdescribe("a parsed email", |ctx| {
+        ctx.it("should allow valid email addresses", || {
+            let emails = vec![
+                "prettyandsimple@example.com",
+                "very.common@example.com",
+                "disposable.style.email.with+symbol@example.com",
+                "other.email-with-dash@example.com",
+                "x@example.com",
+                "example-indeed@strange-example.com",
+                "#!$%&'*+-/=?^_`{}|~@example.org",
+                "example@s.solutions",
+                "user@[fd79:cdcb:38cc:9dd:f686:e06d:32f3:c123]",
+            ];
+            for email in emails {
+                println!("{} should be valid", email);
+                assert!(list.parse_email(email).is_ok());
+            }
+            pass!()
+        });
+
+        ctx.it("should allow parsing emails as str", || {
+            assert!(list.parse_str("prettyandsimple@example.com").unwrap().is_domain());
+            pass!()
+        });
+        
+        ctx.it("should allow parsing emails as URL", || {
+            assert!(list.parse_url("mailto://prettyandsimple@example.com").unwrap().is_domain());
+            pass!()
+        });
+        
+        ctx.it("should allow parsing IDN email addresses", || {
+            assert!(list.parse_email("用户@例子.广告").is_ok());
             pass!()
         });
     });

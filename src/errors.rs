@@ -20,6 +20,8 @@ error_chain! {
 
         InvalidHost { }
 
+        InvalidEmail { }
+
         InvalidRule(t: String) {
             description("invalid rule")
             display("invalid rule: '{}'", t)
