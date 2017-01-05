@@ -1,8 +1,8 @@
-# A Rust library for robust domain name parsing
+# Robust domain name parsing and RFC compliant email address validation
 
 [![Build Status](https://travis-ci.org/rushmorem/publicsuffix.svg?branch=master)](https://travis-ci.org/rushmorem/publicsuffix) [![Latest Version](https://img.shields.io/crates/v/publicsuffix.svg)](https://crates.io/crates/publicsuffix) [![Docs](https://docs.rs/publicsuffix/badge.svg)](https://docs.rs/publicsuffix)
 
-This library uses Mozilla's [Public Suffix List](https://publicsuffix.org) to reliably parse domain names in [Rust](https://www.rust-lang.org). Though parsing domain names is it's primary goal, it also fully exposes the list allowing you to use convenient methods like `list.all()` to get all known domain extensions or `list.icann()` to get only ICANN extensions.
+This library uses Mozilla's [Public Suffix List](https://publicsuffix.org) to reliably parse domain names and email addresses in [Rust](https://www.rust-lang.org). Though parsing domain names is it's primary goal, it also fully exposes the list allowing you to use convenient methods like `list.all()` to get all known domain extensions or `list.icann()` to get only ICANN extensions.
 
 If all you need is to check whether a domain is syntactically correct and do not need to utilise the list you can just use `Domain::has_valid_syntax` method. This method will reliably tell you if a domain has valid syntax whether or not it is an internationalised domain name (IDN). It also checks the length restrictions for each label, total number of labels and full length of domain name.
 

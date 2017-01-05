@@ -266,9 +266,7 @@ impl List {
 
     fn build(res: String) -> Result<List> {
         let mut typ = None;
-        let mut list = List {
-            rules: HashMap::new(),
-        };
+        let mut list = List::empty();
         for line in res.lines() {
             match line {
                 line if line.contains("BEGIN ICANN DOMAINS") => { typ = Some(Type::Icann); }
@@ -292,6 +290,17 @@ impl List {
             return Err(ErrorKind::InvalidList.into());
         }
         Ok(list)
+    }
+
+    /// Creates an empty List without any rules
+    ///
+    /// Sometimes all you want is to do syntax checks. If you don't really care whether
+    /// the domain has a known suffix or not you can just create an empty list and use
+    /// that to parse domain names and email addresses.
+    pub fn empty() -> List {
+        List {
+            rules: HashMap::new(),
+        }
     }
 
     /// Pull the list from a URL
