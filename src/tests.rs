@@ -299,6 +299,7 @@ fn list_behaviour() {
                 r#"甲斐@黒川.日本"#,
                 r#"чебурашка@ящик-с-апельсинами.рф"#,
                 r#"संपर्क@डाटामेल.भारत"#,
+                r#"用户@例子.广告"#,
             ];
             for email in emails {
                 println!("{} should be valid", email);
