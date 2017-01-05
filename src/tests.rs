@@ -244,10 +244,39 @@ fn list_behaviour() {
                 "#!$%&'*+-/=?^_`{}|~@example.org",
                 "example@s.solutions",
                 "user@[fd79:cdcb:38cc:9dd:f686:e06d:32f3:c123]",
+                r#""Abc\@def"@example.com"#,
+                r#""Fred Bloggs"@example.com"#,
+                r#""Joe\\Blow"@example.com"#,
+                r#""Abc@def"@example.com"#,
+                r#"customer/department=shipping@example.com"#,
+                "$A12345@example.com",
+                "!def!xyz%abc@example.com",
+                "_somename@example.com",
             ];
             for email in emails {
                 println!("{} should be valid", email);
                 assert!(list.parse_email(email).is_ok());
+            }
+            pass!()
+        });
+
+        ctx.it("should reject invalid email addresses", || {
+            let emails = vec![
+                "Abc.example.com",
+                "A@b@c@example.com",
+                r#"a"b(c)d,e:f;g<h>i[j\k]l@example.com"#,
+                r#""just"not"right@example.com"#,
+                r#"this is"not\allowed@example.com"#,
+                r#"this\ still\"not\\allowed@example.com"#,
+                "1234567890123456789012345678901234567890123456789012345678901234+x@example.com",
+                "john..doe@example.com",
+                "john.doe@example..com",
+                " prettyandsimple@example.com",
+                "prettyandsimple@example.com ",
+            ];
+            for email in emails {
+                println!("{} should not be valid", email);
+                assert!(list.parse_email(email).is_err());
             }
             pass!()
         });
@@ -263,7 +292,18 @@ fn list_behaviour() {
         });
         
         ctx.it("should allow parsing IDN email addresses", || {
-            assert!(list.parse_email("用户@例子.广告").is_ok());
+            let emails = vec![
+                r#"Pelé@example.com"#,
+                r#"δοκιμή@παράδειγμα.δοκιμή"#,
+                r#"我買@屋企.香港"#,
+                r#"甲斐@黒川.日本"#,
+                r#"чебурашка@ящик-с-апельсинами.рф"#,
+                r#"संपर्क@डाटामेल.भारत"#,
+            ];
+            for email in emails {
+                println!("{} should be valid", email);
+                assert!(list.parse_email(email).is_ok());
+            }
             pass!()
         });
     });

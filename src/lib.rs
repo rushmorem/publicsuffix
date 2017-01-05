@@ -88,7 +88,7 @@ use std::fmt;
 
 pub use errors::{Result, Error};
 
-use regex::Regex;
+use regex::RegexSet;
 use errors::ErrorKind;
 #[cfg(feature = "remote_list")]
 use native_tls::TlsConnector;
@@ -141,7 +141,45 @@ pub enum Host {
 }
 
 lazy_static! {
-    static ref LABEL: Regex = Regex::new(r"^([[:alnum:]]+|[[:alnum:]]+[[:alnum:]-]*[[:alnum:]]+)$").unwrap();
+    // Regex for matching domain name labels
+    static ref LABEL: RegexSet = {
+        let exprs = vec![
+            // can be any combination of alphanumeric characters
+            r"^[[:alnum:]]+$",
+            // or it can start with an alphanumeric character
+            // then optionally be followed by any combination of
+            // alphanumeric characters and dashes before finally
+            // ending with an alphanumeric character
+            r"^[[:alnum:]]+[[:alnum:]-]*[[:alnum:]]+$",
+        ];
+        RegexSet::new(exprs).unwrap()
+    };
+
+    // Regex for matching the local-part of an
+    // email address
+    static ref LOCAL: RegexSet = {
+        // these characters can be anywhere in the expresion
+        let global = r#"[[:alnum:]!#$%&'*+/=?^_`{|}~-]"#;
+        // non-ascii characters (an also be unquoted)
+        let non_ascii = r#"[^\x00-\x7F]"#;
+        // the pattern to match
+        let quoted = r#"["(),\\:;<>@\[\]. ]"#;
+        // combined regex
+        let combined = format!(r#"({}*{}*)"#, global, non_ascii);
+
+        let exprs = vec![
+            // can be any combination of allowed characters
+            format!(r#"^{}+$"#, combined),
+            // can be any combination of allowed charaters
+            // separated by a . in between
+            format!(r#"^({0}+[.]?{0}+)+$"#, combined),
+            // can be a quoted string with allowed plus
+            // additional characters
+            format!(r#"^"({}*{}*)*"$"#, combined, quoted),
+        ];
+
+        RegexSet::new(exprs).unwrap()
+    };
 }
 
 /// Converts a type into a Url object
@@ -379,6 +417,8 @@ impl List {
     // http://girders.org/blog/2013/01/31/dont-rfc-validate-email-addresses/
     // https://html.spec.whatwg.org/multipage/forms.html#valid-e-mail-address
     // https://hackernoon.com/the-100-correct-way-to-validate-email-addresses-7c4818f24643#.pgcir4z3e
+    // http://haacked.com/archive/2007/08/21/i-knew-how-to-validate-an-email-address-until-i.aspx/
+    // https://tools.ietf.org/html/rfc6530#section-10.1
     pub fn parse_email(&self, address: &str) -> Result<Host> {
         let mut parts = address.rsplitn(2, "@");
         let host = match parts.next() {
@@ -389,10 +429,10 @@ impl List {
             Some(local) => local,
             None => { return Err(ErrorKind::InvalidEmail.into()); }
         };
-        if local.starts_with(".")
-            || local.ends_with(".")
-            || local.chars().count() > 64
+        if local.chars().count() > 64
             || address.chars().count() > 254
+            || (!local.starts_with('"') && local.contains(".."))
+            || !LOCAL.is_match(local)
         {
             return Err(ErrorKind::InvalidEmail.into());
         }
@@ -596,7 +636,6 @@ impl Domain {
             return Err(ErrorKind::InvalidDomain(domain.into()).into());
         }
         let input = domain;
-        //let domain = input.trim().trim_right_matches('.');
         let (domain, res) = domain_to_unicode(input);
         if let Err(errors) = res {
             return Err(ErrorKind::Uts46(errors).into());
