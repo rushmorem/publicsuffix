@@ -428,6 +428,7 @@ impl List {
     // https://hackernoon.com/the-100-correct-way-to-validate-email-addresses-7c4818f24643#.pgcir4z3e
     // http://haacked.com/archive/2007/08/21/i-knew-how-to-validate-an-email-address-until-i.aspx/
     // https://tools.ietf.org/html/rfc6530#section-10.1
+    // http://rumkin.com/software/email/rules.php
     pub fn parse_email(&self, address: &str) -> Result<Host> {
         let mut parts = address.rsplitn(2, "@");
         let host = match parts.next() {
