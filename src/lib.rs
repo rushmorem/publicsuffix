@@ -387,7 +387,12 @@ impl List {
 
     /// Parses a domain using the list
     pub fn parse_domain(&self, domain: &str) -> Result<Domain> {
-        Domain::parse(domain, self)
+        Domain::parse(domain, self, true)
+    }
+
+    /// Parses a domain using the list but without verifying the validity as a domain name
+    pub fn parse_domain_relaxed(&self, domain: &str) -> Result<Domain> {
+        Domain::parse(domain, self, false)
     }
 
     /// Parses a host using the list
@@ -465,7 +470,7 @@ impl List {
 
 impl Host {
     fn parse(mut host: &str, list: &List) -> Result<Host> {
-        if let Ok(domain) = Domain::parse(host, list) {
+        if let Ok(domain) = Domain::parse(host, list, true) {
             return Ok(Host::Domain(domain));
         }
         if host.starts_with("[") 
@@ -641,8 +646,8 @@ impl Domain {
         }
     }
 
-    fn parse(domain: &str, list: &List) -> Result<Domain> {
-        if !Self::has_valid_syntax(domain) {
+    fn parse(domain: &str, list: &List, validate_domain_syntax: bool) -> Result<Domain> {
+        if validate_domain_syntax && !Self::has_valid_syntax(domain) {
             return Err(ErrorKind::InvalidDomain(domain.into()).into());
         }
         let input = domain;

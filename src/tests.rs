@@ -175,6 +175,22 @@ fn list_behaviour() {
         });
     });
 
+    rdescribe("a relaxed domain", |ctx| {
+        ctx.it("should allow extended characters", || {
+            let domains = vec![
+                "_tcp.example.com.",
+                "_telnet._tcp.example.com.",
+                "*.example.com.",
+                "ex!mple.com.",
+            ];
+            for domain in domains {
+                println!("{} should be valid", domain);
+                assert!(list.parse_domain_relaxed(domain).is_ok());
+            }
+            pass!()
+        });
+    });
+
     rdescribe("a host", |ctx| {
         ctx.it("can be an IPv4 address", || {
             assert!(list.parse_host("127.38.53.247").is_ok());
