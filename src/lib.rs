@@ -98,7 +98,7 @@ use url::Url;
 /// The official URL of the list
 pub const LIST_URL: &'static str = "https://publicsuffix.org/list/public_suffix_list.dat";
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 struct Suffix {
     rule: String,
     typ: Type,
@@ -114,7 +114,7 @@ pub struct List {
     rules: HashMap<String, Vec<Suffix>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Type {
     Icann,
     Private,
@@ -123,7 +123,7 @@ enum Type {
 /// Holds information about a particular domain
 ///
 /// This is created by `List::parse_domain`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Domain {
     full: String,
     typ: Option<Type>,
@@ -134,7 +134,7 @@ pub struct Domain {
 /// Holds information about a particular host
 ///
 /// This is created by `List::parse_host`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Host {
     Ip(IpAddr),
     Domain(Domain),
