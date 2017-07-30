@@ -14,7 +14,7 @@ Add this crate to your `Cargo.toml`:
 
 ```toml
 [dependencies.publicsuffix]
-version = "1.3"
+version = "1.4"
 
 # This crate exposes the methods `List::fetch` and `List::from_url` as a
 # feature named "remote_list". This feature is on by default. If you have
@@ -60,6 +60,10 @@ assert_eq!(domain.suffix(), Some("xn--55qx5d.cn"));
 let domain = list.parse_domain("a.b.example.uk.com")?;
 assert_eq!(domain.root(), Some("example.uk.com"));
 assert_eq!(domain.suffix(), Some("uk.com"));
+
+let name = list.parse_dns_name("_tcp.example.com.")?;
+assert_eq!(name.domain().and_then(|domain| domain.root()), Some("example.com"));
+assert_eq!(name.domain().and_then(|domain| domain.suffix()), Some("com"));
 
 // You can also find out if this is an ICANN domain
 assert!(!domain.is_icann());

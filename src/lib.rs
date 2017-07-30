@@ -40,6 +40,10 @@
 //! assert_eq!(domain.root(), Some("example.uk.com"));
 //! assert_eq!(domain.suffix(), Some("uk.com"));
 //!
+//! let name = list.parse_dns_name("_tcp.example.com.")?;
+//! assert_eq!(name.domain().and_then(|domain| domain.root()), Some("example.com"));
+//! assert_eq!(name.domain().and_then(|domain| domain.suffix()), Some("com"));
+//!
 //! // You can also find out if this is an ICANN domain
 //! assert!(!domain.is_icann());
 //!
@@ -92,7 +96,7 @@ use regex::RegexSet;
 use errors::ErrorKind;
 #[cfg(feature = "remote_list")]
 use native_tls::TlsConnector;
-use idna::{domain_to_unicode, domain_to_ascii};
+use idna::{domain_to_unicode, uts46};
 use url::Url;
 
 /// The official URL of the list
@@ -138,6 +142,15 @@ pub struct Domain {
 pub enum Host {
     Ip(IpAddr),
     Domain(Domain),
+}
+
+/// Holds information about a particular DNS name
+///
+/// This is created by `List::parse_dns_name`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DnsName {
+    name: String,
+    domain: Option<Domain>,
 }
 
 lazy_static! {
@@ -387,7 +400,7 @@ impl List {
 
     /// Parses a domain using the list
     pub fn parse_domain(&self, domain: &str) -> Result<Domain> {
-        Domain::parse(domain, self)
+        Domain::parse(domain, self, true)
     }
 
     /// Parses a host using the list
@@ -461,22 +474,39 @@ impl List {
             self.parse_host(string)
         }
     }
+
+    /// Parses any arbitrary string that can be used as a key in a DNS database
+    pub fn parse_dns_name(&self, name: &str) -> Result<DnsName> {
+        let mut dns_name = DnsName {
+            name: Domain::to_ascii(name)?,
+            domain: None,
+        };
+        if let Ok(mut domain) = Domain::parse(name, self, false) {
+            if let Some(root) = domain.root().map(|root| root.to_string()) {
+                if Domain::has_valid_syntax(&root) {
+                    domain.full = root;
+                    dns_name.domain = Some(domain);
+                }
+            }
+        }
+        Ok(dns_name)
+    }
 }
 
 impl Host {
     fn parse(mut host: &str, list: &List) -> Result<Host> {
-        if let Ok(domain) = Domain::parse(host, list) {
+        if let Ok(domain) = Domain::parse(host, list, true) {
             return Ok(Host::Domain(domain));
         }
         if host.starts_with("[") 
             && !host.starts_with("[[")
-            && host.ends_with("]")
-            && !host.ends_with("]]")
-        {
-            host = host
-                .trim_left_matches("[")
-                .trim_right_matches("]");
-        };
+                && host.ends_with("]")
+                && !host.ends_with("]]")
+                {
+                    host = host
+                        .trim_left_matches("[")
+                        .trim_right_matches("]");
+                };
         if let Ok(ip) = IpAddr::from_str(host) {
             return Ok(Host::Ip(ip));
         }
@@ -522,12 +552,7 @@ impl Domain {
         // let's convert the domain to ascii early on so we can validate
         // internationalised domain names as well
         let domain = match Self::to_ascii(domain) {
-            Ok(domain) => {
-                let mut len = domain.chars().count();
-                if domain.ends_with(".") { len -= 1; }
-                if len > 253 { return false; }
-                domain
-            }
+            Ok(domain) => { domain }
             Err(_) => { return false; }
         };
         let mut labels: Vec<&str> = domain.split('.').collect();
@@ -537,8 +562,6 @@ impl Domain {
         if labels.len() > 127 { return false; }
         labels.reverse();
         for (i, label) in labels.iter().enumerate() {
-            // any label must be 63 characters or less
-            if label.chars().count() > 63 { return false; }
             // the tld must not be a number
             if i == 0 && label.parse::<f64>().is_ok() { return false; }
             // any label must only contain allowed characters
@@ -633,16 +656,16 @@ impl Domain {
     }
 
     fn to_ascii(domain: &str) -> Result<String> {
-        match domain_to_ascii(domain) {
-            Ok(domain) => Ok(domain.into()),
-            Err(_) => {
-                return Err(ErrorKind::InvalidDomain(domain.into()).into());
-            },
-        }
+        let result = uts46::to_ascii(domain, uts46::Flags {
+            use_std3_ascii_rules: false,
+            transitional_processing: true,
+            verify_dns_length: true,
+        });
+        result.map_err(|error| ErrorKind::Uts46(error).into())
     }
 
-    fn parse(domain: &str, list: &List) -> Result<Domain> {
-        if !Self::has_valid_syntax(domain) {
+    fn parse(domain: &str, list: &List, check_syntax: bool) -> Result<Domain> {
+        if check_syntax && !Self::has_valid_syntax(domain) {
             return Err(ErrorKind::InvalidDomain(domain.into()).into());
         }
         let input = domain;
@@ -709,5 +732,18 @@ impl Domain {
 impl fmt::Display for Domain {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.full.trim_right_matches(".").to_lowercase())
+    }
+}
+
+impl DnsName {
+    /// Extracts the root domain from a DNS name, if any
+    pub fn domain(&self) -> Option<&Domain> {
+        self.domain.as_ref()
+    }
+}
+
+impl fmt::Display for DnsName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.name.fmt(f)
     }
 }

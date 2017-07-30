@@ -3,10 +3,6 @@ extern crate rspec;
 use {List, request};
 use self::rspec::context::rdescribe;
 
-macro_rules! pass {
-    () => { Ok(()) as Result<(), ()> }
-}
-
 #[test]
 fn list_behaviour() {
     let list = List::fetch().unwrap();
@@ -14,22 +10,18 @@ fn list_behaviour() {
     rdescribe("the list", |ctx| {
         ctx.it("should not be empty", || {
             assert!(!list.all().is_empty());
-            pass!()
         });
 
         ctx.it("should have ICANN domains", || {
             assert!(!list.icann().is_empty());
-            pass!()
         });
 
         ctx.it("should have private domains", || {
             assert!(!list.private().is_empty());
-            pass!()
         });
 
         ctx.it("should have at least 1000 domains", || {
             assert!(list.all().len() > 1000);
-            pass!()
         });
     });
 
@@ -95,38 +87,31 @@ fn list_behaviour() {
     rdescribe("a domain", |ctx| {
         ctx.it("should allow fully qualified domain names", || {
             assert!(list.parse_domain("example.com.").is_ok());
-            pass!()
         });
 
         ctx.it("should not allow more than 1 trailing dots", || {
             assert!(list.parse_domain("example.com..").is_err());
-            pass!()
         });
 
         ctx.it("should not have empty labels", || {
             assert!(list.parse_domain("exa..mple.com").is_err());
-            pass!()
         });
 
         ctx.it("should not contain spaces", || {
             assert!(list.parse_domain("exa mple.com").is_err());
-            pass!()
         });
 
         ctx.it("should not start with a dash", || {
             assert!(list.parse_domain("-example.com").is_err());
-            pass!()
         });
 
 
         ctx.it("should not end with a dash", || {
             assert!(list.parse_domain("example-.com").is_err());
-            pass!()
         });
 
         ctx.it("should not contain /", || {
             assert!(list.parse_domain("exa/mple.com").is_err());
-            pass!()
         });
 
         ctx.it("should not have a label > 63 characters", || {
@@ -136,22 +121,18 @@ fn list_behaviour() {
             }
             too_long_domain.push_str(".com");
             assert!(list.parse_domain(&too_long_domain).is_err());
-            pass!()
         });
 
         ctx.it("should not be an IPv4 address", || {
             assert!(list.parse_domain("127.38.53.247").is_err());
-            pass!()
         });
 
         ctx.it("should not be an IPv6 address", || {
             assert!(list.parse_domain("fd79:cdcb:38cc:9dd:f686:e06d:32f3:c123").is_err());
-            pass!()
         });
 
         ctx.it("should allow numbers only labels that are not the tld", || {
             assert!(list.parse_domain("127.com").is_ok());
-            pass!()
         });
 
         ctx.it("should not have more than 127 labels", || {
@@ -161,7 +142,6 @@ fn list_behaviour() {
             }
             too_many_labels_domain.push_str(".com");
             assert!(list.parse_domain(&too_many_labels_domain).is_err());
-            pass!()
         });
 
         ctx.it("should not have more than 253 characters", || {
@@ -171,64 +151,95 @@ fn list_behaviour() {
             }
             too_many_chars_domain.push_str(".com");
             assert!(list.parse_domain(&too_many_chars_domain).is_err());
-            pass!()
+        });
+    });
+
+    rdescribe("a DNS name", |ctx| {
+        ctx.it("should allow extended characters", || {
+            let names = vec![
+                "_tcp.example.com.",
+                "_telnet._tcp.example.com.",
+                "*.example.com.",
+                "ex!mple.com.",
+            ];
+            for name in names {
+                println!("{} should be valid", name);
+                assert!(list.parse_dns_name(name).is_ok());
+            }
+        });
+
+        ctx.it("should allow extracting the correct domain name where possible", || {
+            let names = vec![
+                ("_tcp.example.com.", "example.com"),
+                ("_telnet._tcp.example.com.", "example.com"),
+                ("*.example.com.", "example.com"),
+            ];
+            for (name, domain) in names {
+                println!("{}'s root domain should be {}", name, domain);
+                let name = list.parse_dns_name(name).unwrap();
+                let root = name.domain().unwrap().root();
+                assert_eq!(root, Some(domain));
+            }
+        });
+
+        ctx.it("should not extract any domain where not possible", || {
+            let names = vec![
+                "_tcp.com.",
+                "_telnet._tcp.com.",
+                "*.com.",
+                "ex!mple.com.",
+            ];
+            for name in names {
+                println!("{} should not have any root domain", name);
+                let name = list.parse_dns_name(name).unwrap();
+                assert!(name.domain().is_none());
+            }
         });
     });
 
     rdescribe("a host", |ctx| {
         ctx.it("can be an IPv4 address", || {
             assert!(list.parse_host("127.38.53.247").is_ok());
-            pass!()
         });
 
         ctx.it("can be an IPv6 address", || {
             assert!(list.parse_host("fd79:cdcb:38cc:9dd:f686:e06d:32f3:c123").is_ok());
-            pass!()
         });
 
         ctx.it("can be a domain name", || {
             assert!(list.parse_host("example.com").is_ok());
-            pass!()
         });
 
         ctx.it("cannot be neither an IP address nor a domain name", || {
             assert!(list.parse_host("23.56").is_err());
-            pass!()
         });
 
         ctx.it("an IPv4 address should parse into an IP object", || {
             assert!(list.parse_host("127.38.53.247").unwrap().is_ip());
-            pass!()
         });
 
         ctx.it("an IPv6 address should parse into an IP object", || {
             assert!(list.parse_host("fd79:cdcb:38cc:9dd:f686:e06d:32f3:c123").unwrap().is_ip());
-            pass!()
         });
 
         ctx.it("a domain name should parse into a domain object", || {
             assert!(list.parse_host("example.com").unwrap().is_domain());
-            pass!()
         });
 
         ctx.it("can be parsed from a URL with a domain as hostname", || {
             assert!(list.parse_url("https://publicsuffix.org/list/").unwrap().is_domain());
-            pass!()
         });
 
         ctx.it("can be parsed from a URL with an IP address as hostname", || {
             assert!(list.parse_url("https://127.38.53.247:8080/list/").unwrap().is_ip());
-            pass!()
         });
 
         ctx.it("can be parsed from a URL using `parse_str`", || {
             assert!(list.parse_str("https://127.38.53.247:8080/list/").unwrap().is_ip());
-            pass!()
         });
 
         ctx.it("can be parsed from a non-URL using `parse_str`", || {
             assert!(list.parse_str("example.com").unwrap().is_domain());
-            pass!()
         });
     });
 
@@ -257,7 +268,6 @@ fn list_behaviour() {
                 println!("{} should be valid", email);
                 assert!(list.parse_email(email).is_ok());
             }
-            pass!()
         });
 
         ctx.it("should reject invalid email addresses", || {
@@ -278,19 +288,16 @@ fn list_behaviour() {
                 println!("{} should not be valid", email);
                 assert!(list.parse_email(email).is_err());
             }
-            pass!()
         });
 
         ctx.it("should allow parsing emails as str", || {
             assert!(list.parse_str("prettyandsimple@example.com").unwrap().is_domain());
-            pass!()
         });
-        
+
         ctx.it("should allow parsing emails as URL", || {
             assert!(list.parse_url("mailto://prettyandsimple@example.com").unwrap().is_domain());
-            pass!()
         });
-        
+
         ctx.it("should allow parsing IDN email addresses", || {
             let emails = vec![
                 r#"Pelé@example.com"#,
@@ -305,7 +312,6 @@ fn list_behaviour() {
                 println!("{} should be valid", email);
                 assert!(list.parse_email(email).is_ok());
             }
-            pass!()
         });
     });
 }
