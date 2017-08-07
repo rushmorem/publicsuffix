@@ -93,7 +93,7 @@ use std::fmt;
 pub use errors::{Result, Error};
 
 use regex::RegexSet;
-use errors::ErrorKind;
+use errors::{ErrorKind, ResultExt};
 #[cfg(feature = "remote_list")]
 use native_tls::TlsConnector;
 use idna::{domain_to_unicode, uts46};
@@ -478,7 +478,9 @@ impl List {
     /// Parses any arbitrary string that can be used as a key in a DNS database
     pub fn parse_dns_name(&self, name: &str) -> Result<DnsName> {
         let mut dns_name = DnsName {
-            name: Domain::to_ascii(name)?,
+            name: Domain::to_ascii(name).chain_err(|| {
+                ErrorKind::InvalidDomain(name.into())
+            })?,
             domain: None,
         };
         if let Ok(mut domain) = Domain::parse(name, self, false) {
