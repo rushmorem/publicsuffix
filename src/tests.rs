@@ -89,8 +89,16 @@ fn list_behaviour() {
             assert!(list.parse_domain("example.com.").is_ok());
         });
 
-        ctx.it("should not allow more than 1 trailing dots", || {
+        ctx.it("should not allow more than 1 trailing dot", || {
             assert!(list.parse_domain("example.com..").is_err());
+        });
+
+        ctx.it("should allow a single label with a single trailing dot", || {
+            assert!(list.parse_domain("com.").is_ok());
+        });
+
+        ctx.it("should have the same result with or without the trailing dot", || {
+                assert_eq!(list.parse_domain("com.").unwrap(), list.parse_domain("com").unwrap());
         });
 
         ctx.it("should not have empty labels", || {
@@ -194,6 +202,10 @@ fn list_behaviour() {
                 let name = list.parse_dns_name(name).unwrap();
                 assert!(name.domain().is_none());
             }
+        });
+
+        ctx.it("should not allow more than 1 trailing dot", || {
+            assert!(list.parse_dns_name("example.com..").is_err());
         });
     });
 
