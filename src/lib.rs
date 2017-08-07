@@ -668,7 +668,7 @@ impl Domain {
         if check_syntax && !Self::has_valid_syntax(domain) {
             return Err(ErrorKind::InvalidDomain(domain.into()).into());
         }
-        let input = domain;
+        let input = domain.trim_right_matches('.');
         let (domain, res) = domain_to_unicode(input);
         if let Err(errors) = res {
             return Err(ErrorKind::Uts46(errors).into());
