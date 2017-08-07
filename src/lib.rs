@@ -642,9 +642,13 @@ impl Domain {
             }
         }
 
-        if suffix.is_none() && d_labels.len() > 1 && no_possible_matches_found {
+        if suffix.is_none() && d_labels.len() > 0 && no_possible_matches_found {
             suffix = Some(Self::assemble(input, 1));
-            registrable = Some(Self::assemble(input, 2));
+            registrable = if d_labels.len() > 1 {
+                Some(Self::assemble(input, 2))
+            } else {
+                None
+            };
         }
 
         Ok(Domain {
