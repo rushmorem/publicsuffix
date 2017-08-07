@@ -1,6 +1,7 @@
 extern crate rspec;
 
 use {List, request};
+use errors::ErrorKind;
 use self::rspec::context::rdescribe;
 
 #[test]
@@ -91,6 +92,10 @@ fn list_behaviour() {
 
         ctx.it("should not allow more than 1 trailing dot", || {
             assert!(list.parse_domain("example.com..").is_err());
+            match *list.parse_domain("example.com..").unwrap_err().kind() {
+                ErrorKind::InvalidDomain(ref domain) => assert_eq!(domain, "example.com.."),
+                _ => assert!(false),
+            }
         });
 
         ctx.it("should allow a single label with a single trailing dot", || {
@@ -206,6 +211,10 @@ fn list_behaviour() {
 
         ctx.it("should not allow more than 1 trailing dot", || {
             assert!(list.parse_dns_name("example.com..").is_err());
+            match *list.parse_dns_name("example.com..").unwrap_err().kind() {
+                ErrorKind::InvalidDomain(ref domain) => assert_eq!(domain, "example.com.."),
+                _ => assert!(false),
+            }
         });
     });
 
