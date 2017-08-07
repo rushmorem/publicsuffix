@@ -102,6 +102,24 @@ fn list_behaviour() {
             assert!(list.parse_domain("com.").is_ok());
         });
 
+        ctx.it("should always have a suffix for single-label domains", || {
+            let domains = vec![
+                // real TLDs
+                "com",
+                "saarland",
+                "museum.",
+                // non-existant TLDs
+                "localhost",
+                "madeup",
+                "with-dot.",
+            ];
+            for domain in domains {
+                let res = list.parse_domain(domain).unwrap();
+                assert_eq!(res.suffix(), Some(domain.trim_right_matches('.')));
+                assert!(res.root().is_none());
+            }
+        });
+
         ctx.it("should have the same result with or without the trailing dot", || {
                 assert_eq!(list.parse_domain("com.").unwrap(), list.parse_domain("com").unwrap());
         });
