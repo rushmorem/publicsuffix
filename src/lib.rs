@@ -277,7 +277,7 @@ impl List {
             })
     }
 
-    fn build(res: String) -> Result<List> {
+    fn build(res: &str) -> Result<List> {
         let mut typ = None;
         let mut list = List::empty();
         for line in res.lines() {
@@ -319,7 +319,7 @@ impl List {
     /// Pull the list from a URL
     #[cfg(feature = "remote_list")]
     pub fn from_url<U: IntoUrl>(url: U) -> Result<List> {
-        request(url).and_then(Self::build)
+        request(url).and_then(Self::from_string)
     }
 
     /// Fetch the list from a local file
@@ -331,7 +331,7 @@ impl List {
                 data.read_to_string(&mut res)?;
                 Ok(res)
             })
-            .and_then(Self::build)
+            .and_then(Self::from_string)
     }
 
     /// Build the list from the result of anything that implements `std::io::Read`
@@ -342,7 +342,7 @@ impl List {
     pub fn from_reader<R: Read>(mut reader: R) -> Result<List> {
         let mut res = String::new();
         reader.read_to_string(&mut res)?;
-        Self::build(res)
+        Self::build(&res)
     }
 
     /// Build the list from a string
@@ -351,6 +351,15 @@ impl List {
     /// list, say in a DBMS. You can then pull it at runtime and build the list from
     /// the resulting String.
     pub fn from_string(string: String) -> Result<List> {
+        Self::from_str(&string)
+    }
+
+    /// Build the list from a str
+    ///
+    /// The list doesn't always have to come from a file. You can maintain your own
+    /// list, say in a DBMS. You can then pull it at runtime and build the list from
+    /// the resulting str.
+    pub fn from_str(string: &str) -> Result<List> {
         Self::build(string)
     }
 
