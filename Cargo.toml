@@ -25,4 +25,4 @@ version = "0.1"
 optional = true
 
 [dev_dependencies]
-rspec = "1.0.0-beta.3"
+rspec = "=1.0.0-beta.3"
