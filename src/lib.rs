@@ -242,7 +242,7 @@ fn request<U: IntoUrl>(u: U) -> Result<String> {
 
     match url.scheme() {
         scheme if scheme == "https" => {
-            let connector = TlsConnector::builder()?.build()?;
+            let connector = TlsConnector::builder().build()?;
             let mut stream = connector.connect(host, stream)?;
             stream.write_all(data.as_bytes())?;
             stream.read_to_string(&mut res)?;

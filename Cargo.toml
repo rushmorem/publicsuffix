@@ -14,14 +14,14 @@ default = ["remote_list"]
 remote_list = ["native-tls"]
 
 [dependencies]
-error-chain = "0.11"
+error-chain = "0.12"
 idna = "0.1"
-regex = "0.2"
-url = "1.5"
+regex = "1.0"
+url = "1.7"
 lazy_static = "1.0"
 
 [dependencies.native-tls]
-version = "0.1"
+version = "0.2"
 optional = true
 
 [dev_dependencies]
