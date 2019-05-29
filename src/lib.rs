@@ -509,7 +509,7 @@ impl Host {
         if let Ok(domain) = Domain::parse(host, list, true) {
             return Ok(Host::Domain(domain));
         }
-        if host.starts_with("[") 
+        if host.starts_with("[")
             && !host.starts_with("[[")
                 && host.ends_with("]")
                 && !host.ends_with("]]")
@@ -579,6 +579,11 @@ impl Domain {
             if !LABEL.is_match(label) { return false; }
         }
         true
+    }
+
+    /// Get the full domain
+    pub fn full(&self) -> &str {
+        &self.full
     }
 
     fn find_possible_matches<'a>(domain: &str, list: &'a List) -> Result<Vec<&'a Suffix>> {
