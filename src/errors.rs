@@ -18,6 +18,8 @@ error_chain! {
 
         NoHost { }
 
+        NoPort { }
+
         InvalidHost { }
 
         InvalidEmail { }

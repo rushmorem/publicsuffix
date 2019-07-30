@@ -227,12 +227,16 @@ impl IntoUrl for String {
 #[cfg(feature = "remote_list")]
 fn request<U: IntoUrl>(u: U) -> Result<String> {
     let url = u.into_url()?;
-    let addr = url.with_default_port(|_| Err(()))?;
     let host = match url.host_str() {
         Some(host) => host,
         None => { return Err(ErrorKind::NoHost.into()); }
     };
+    let port = match url.port_or_known_default() {
+        Some(port) => port,
+        None => { return Err(ErrorKind::NoPort.into()); }
+    };
     let data = format!("GET {} HTTP/1.0\r\nHost: {}\r\n\r\n", url.path(), host);
+    let addr = format!("{}:{}", host, port);
     let stream = TcpStream::connect(addr)?;
     let timeout = Duration::from_secs(2);
     stream.set_read_timeout(Some(timeout))?;
