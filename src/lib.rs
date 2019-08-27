@@ -96,7 +96,7 @@ use regex::RegexSet;
 use errors::{ErrorKind, ResultExt};
 #[cfg(feature = "remote_list")]
 use native_tls::TlsConnector;
-use idna::{domain_to_unicode, Config, Errors};
+use idna::{domain_to_unicode};
 use url::Url;
 
 /// The official URL of the list
@@ -555,8 +555,8 @@ impl Host {
                 && !host.ends_with("]]")
                 {
                     host = host
-                        .trim_left_matches("[")
-                        .trim_right_matches("]");
+                        .trim_start_matches("[")
+                        .trim_end_matches("]");
                 };
         if let Ok(ip) = IpAddr::from_str(host) {
             return Ok(Host::Ip(ip));
@@ -630,7 +630,7 @@ impl Domain {
         let domain = input.to_lowercase();
 
         let d_labels: Vec<&str> = domain
-            .trim_right_matches('.')
+            .trim_end_matches('.')
             .split('.').rev().collect();
 
         (&d_labels[..s_len]).iter().rev()
@@ -706,7 +706,7 @@ impl Domain {
         if check_syntax && !Self::has_valid_syntax(domain) {
             return Err(ErrorKind::InvalidDomain(domain.into()).into());
         }
-        let input = domain.trim_right_matches('.');
+        let input = domain.trim_end_matches('.');
         let (domain, res) = domain_to_unicode(input);
         if let Err(errors) = res {
             return Err(ErrorKind::Uts46(errors).into());
@@ -768,7 +768,7 @@ impl Domain {
 
 impl fmt::Display for Domain {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.full.trim_right_matches(".").to_lowercase())
+        write!(f, "{}", self.full.trim_end_matches(".").to_lowercase())
     }
 }
 

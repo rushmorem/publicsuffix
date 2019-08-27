@@ -115,7 +115,7 @@ fn list_behaviour() {
             ];
             for domain in domains {
                 let res = list.parse_domain(domain).unwrap();
-                assert_eq!(res.suffix(), Some(domain.trim_right_matches('.')));
+                assert_eq!(res.suffix(), Some(domain.trim_end_matches('.')));
                 assert!(res.root().is_none());
             }
         });
