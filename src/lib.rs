@@ -102,10 +102,39 @@ use url::Url;
 /// The official URL of the list
 pub const LIST_URL: &'static str = "https://publicsuffix.org/list/public_suffix_list.dat";
 
+const PREVAILING_STAR_RULE: &'static str = "*";
+
 #[derive(Debug, PartialEq, Eq, Hash)]
 struct Suffix {
     rule: String,
     typ: Type,
+}
+
+#[derive(Debug)]
+struct ListLeaf {
+    typ: Type,
+    is_exception_rule: bool,
+}
+
+impl ListLeaf {
+    fn new(typ: Type, is_exception_rule: bool) -> Self {
+        Self { typ, is_exception_rule }
+    }
+}
+
+#[derive(Debug)]
+struct ListNode {
+    children: HashMap<String, Box<ListNode>>,
+    leaf: Option<ListLeaf>,
+}
+
+impl ListNode {
+    fn new() -> Self {
+        Self {
+            children: HashMap::new(),
+            leaf: None,
+        }
+    }
 }
 
 /// Stores the public suffix list
@@ -115,7 +144,8 @@ struct Suffix {
 /// `fetch` or `from_url` to download updates at least once a week.
 #[derive(Debug)]
 pub struct List {
-    rules: HashMap<String, Vec<Suffix>>,
+    root: ListNode,
+    all: Vec<Suffix>,  // to support all(), icann(), private()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -263,22 +293,30 @@ fn request<U: IntoUrl>(u: U) -> Result<String> {
 }
 
 impl List {
-    fn append(&mut self, rule: &str, typ: Type) -> Result<()> {
-        rule.rsplit('.').next()
-            .ok_or(ErrorKind::InvalidRule(rule.into()).into())
-            .and_then(|tld| {
-                if tld.is_empty() {
-                    return Err(ErrorKind::InvalidRule(rule.into()).into());
-                }
-                Ok(tld)})
-            .and_then(|tld| {
-                self.rules.entry(tld.into()).or_insert(Vec::new())
-                    .push(Suffix {
-                        rule: rule.into(),
-                        typ: typ,
-                    });
-                Ok(())
-            })
+    fn append(&mut self, mut rule: &str, typ: Type) -> Result<()> {
+        let mut is_exception_rule = false;
+        if rule.starts_with("!") {
+            is_exception_rule = true;
+            rule = &rule[1..];
+        }
+
+        let mut current = &mut self.root;
+        for label in rule.rsplit('.') {
+            if label.is_empty() {
+                return Err(ErrorKind::InvalidRule(rule.into()).into());
+            }
+
+            let cur = current;
+            current = cur.children.entry(label.to_owned())
+                .or_insert(Box::new(ListNode::new()));
+        }
+
+        current.leaf = Some(ListLeaf::new(typ, is_exception_rule));
+
+        // to support all(), icann(), private()
+        self.all.push(Suffix {rule: rule.to_owned(), typ: typ});
+
+        Ok(())
     }
 
     fn build(res: &str) -> Result<List> {
@@ -303,9 +341,12 @@ impl List {
                 }
             }
         }
-        if list.rules.is_empty() || list.all().is_empty() {
+        if list.root.children.is_empty() || list.all().is_empty() {
             return Err(ErrorKind::InvalidList.into());
         }
+
+        list.append(PREVAILING_STAR_RULE, Type::Icann)?;  // add the default rule
+
         Ok(list)
     }
 
@@ -316,7 +357,8 @@ impl List {
     /// that to parse domain names and email addresses.
     pub fn empty() -> List {
         List {
-            rules: HashMap::new(),
+            root: ListNode::new(),
+            all: Vec::new(),
         }
     }
 
@@ -379,15 +421,9 @@ impl List {
     }
 
     fn find_type(&self, typ: Type) -> Vec<&str> {
-        self.rules.values()
-            .fold(Vec::new(), |mut res, ref suffices| {
-                for suffix in *suffices {
-                    if suffix.typ == typ {
-                        res.push(&suffix.rule);
-                    }
-                }
-                res
-            })
+        self.all_internal()
+            .filter(|s| s.typ == typ)
+            .map(|s| s.rule.as_str()).collect()
     }
 
     /// Gets a list of all ICANN domain suffices
@@ -402,13 +438,13 @@ impl List {
 
     /// Gets a list of all domain suffices
     pub fn all(&self) -> Vec<&str> {
-        self.rules.values()
-            .fold(Vec::new(), |mut res, ref suffices| {
-                for suffix in *suffices {
-                    res.push(&suffix.rule);
-                }
-                res
-            })
+        self.all_internal().map(|s| s.rule.as_str()).collect()
+    }
+
+    fn all_internal(&self) -> impl Iterator<Item = &Suffix> {
+        self.all.iter()
+            // remove the default rule
+            .filter(|s| s.rule != PREVAILING_STAR_RULE)
     }
 
     /// Parses a domain using the list
@@ -590,26 +626,6 @@ impl Domain {
         &self.full
     }
 
-    fn find_possible_matches<'a>(domain: &str, list: &'a List) -> Result<Vec<&'a Suffix>> {
-        let tld = match domain.rsplit('.').next() {
-            Some(tld) => {
-                if tld.is_empty() { return Ok(Vec::new()); }
-                tld
-            },
-            None => { return Ok(Vec::new()); },
-        };
-        let candidates = match list.rules.get(tld) {
-            Some(candidates) => candidates,
-            None => { return Ok(Vec::new()); },
-        };
-        let candidates = candidates.iter()
-            .fold(Vec::new(), |mut res, ref suffix| {
-                res.push(*suffix);
-                res
-            });
-        Ok(candidates)
-    }
-
     fn assemble(input: &str, s_len: usize) -> String {
         let domain = input.to_lowercase();
 
@@ -623,60 +639,59 @@ impl Domain {
             .join(".")
     }
 
-    fn find_match(input: &str, domain: &str, candidates: Vec<&Suffix>) -> Result<Domain> {
-        let d_labels: Vec<&str> = domain.split('.').rev().collect();
-
-        let mut registrable = None;
-        let mut suffix = None;
-        let mut typ = None;
-        let mut num_labels = 0;
-
-        let no_possible_matches_found = candidates.is_empty();
-
-        for candidate in candidates {
-            let s_labels: Vec<&str> = candidate.rule.split('.').rev().collect();
-            if s_labels.len() > d_labels.len() { continue; }
-            for (i, label) in s_labels.iter().enumerate() {
-                if *label == d_labels[i] || *label == "*" || label.trim_left_matches('!') == d_labels[i] {
-                    if i == s_labels.len()-1 {
-                        if s_labels.len() >= num_labels {
-                            num_labels = s_labels.len();
-                            typ = Some(candidate.typ);
-                            let s_len = if label.starts_with("!") {
-                                s_labels.len()-1
-                            } else {
-                                s_labels.len()
-                            };
-                            suffix = Some(Self::assemble(input, s_len));
-                            if d_labels.len() > s_len {
-                                let root = Self::assemble(input, s_len+1);
-                                registrable = Some(root);
-                            } else {
-                                registrable = None;
-                            }
-                        }
-                    }
-                } else {
-                    break;
-                }
+    fn find_match(input: &str, domain: &str, list: &List) -> Result<Domain> {
+        let mut current = &list.root;
+        let mut s_labels_len = 0;
+        for label in domain.rsplit('.') {
+            if let Some(child) = current.children.get(label) {
+                current = child;
+                s_labels_len += 1;
+                continue;
+            } else if let Some(child) = current.children.get("*") {
+                // wildcard rule
+                current = child;
+                s_labels_len += 1;
+                continue;
+            } else {
+                // no match rules
+                break;
             }
         }
 
-        if suffix.is_none() && d_labels.len() > 0 && no_possible_matches_found {
-            suffix = Some(Self::assemble(input, 1));
-            registrable = if d_labels.len() > 1 {
-                Some(Self::assemble(input, 2))
-            } else {
-                None
-            };
-        }
+        match &current.leaf {
+            Some(leaf) => {
+                let typ = Some(leaf.typ);
 
-        Ok(Domain {
-            full: input.to_string(),
-            typ: typ,
-            suffix: suffix,
-            registrable: registrable,
-        })
+                let s_len = if leaf.is_exception_rule {
+                    s_labels_len - 1
+                } else {
+                    s_labels_len
+                };
+
+                let suffix = Some(Self::assemble(input, s_len));
+
+                let d_labels_len = domain.match_indices(".").count() + 1;
+                let registrable = if d_labels_len > s_len {
+                    Some(Self::assemble(input, s_len + 1))
+                } else {
+                    None
+                };
+                Ok(Domain {
+                    full: input.to_owned(),
+                    typ: typ,
+                    suffix: suffix,
+                    registrable: registrable,
+                })
+            },
+            None => {
+                Ok(Domain {
+                    full: input.to_owned(),
+                    typ: None,
+                    suffix: None,
+                    registrable: None,
+                })
+            },
+        }
     }
 
     fn to_ascii(domain: &str) -> Result<String> {
@@ -697,8 +712,7 @@ impl Domain {
         if let Err(errors) = res {
             return Err(ErrorKind::Uts46(errors).into());
         }
-        Self::find_possible_matches(&domain, list)
-            .and_then(|res| Self::find_match(input, &domain, res))
+        Self::find_match(input, &domain, list)
     }
 
     /// Gets the root domain portion if any
