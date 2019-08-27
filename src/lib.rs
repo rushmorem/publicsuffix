@@ -96,7 +96,7 @@ use regex::RegexSet;
 use errors::{ErrorKind, ResultExt};
 #[cfg(feature = "remote_list")]
 use native_tls::TlsConnector;
-use idna::{domain_to_unicode, uts46};
+use idna::{domain_to_unicode, Config, Errors};
 use url::Url;
 
 /// The official URL of the list
@@ -695,11 +695,10 @@ impl Domain {
     }
 
     fn to_ascii(domain: &str) -> Result<String> {
-        let result = uts46::to_ascii(domain, uts46::Flags {
-            use_std3_ascii_rules: false,
-            transitional_processing: true,
-            verify_dns_length: true,
-        });
+        let result = idna::Config::default()
+            .transitional_processing(true)
+            .verify_dns_length(true)
+            .to_ascii(domain);
         result.map_err(|error| ErrorKind::Uts46(error).into())
     }
 
