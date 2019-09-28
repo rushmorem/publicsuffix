@@ -14,7 +14,7 @@ default = ["remote_list"]
 remote_list = ["native-tls"]
 
 [dependencies]
-error-chain = "0.12"
+error-chain = { version = "0.12", default-features = false }
 idna = "0.2"
 regex = "1.0"
 url = "2.0"
