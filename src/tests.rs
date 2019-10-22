@@ -183,6 +183,16 @@ fn list_behaviour() {
             too_many_chars_domain.push_str(".com");
             assert!(list.parse_domain(&too_many_chars_domain).is_err());
         });
+
+        ctx.it("should choose the longest valid suffix", || {
+            let domain = list.parse_domain("foo.builder.nu").unwrap();
+            assert_eq!(Some("nu"), domain.suffix());
+            assert_eq!(Some("builder.nu"), domain.root());
+
+            let domain = list.parse_domain("foo.fbsbx.com").unwrap();
+            assert_eq!(Some("com"), domain.suffix());
+            assert_eq!(Some("fbsbx.com"), domain.root());
+        });
     });
 
     rdescribe("a DNS name", |ctx| {
