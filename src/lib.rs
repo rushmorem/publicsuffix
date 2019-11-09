@@ -640,42 +640,48 @@ impl Domain {
     }
 
     fn find_match(input: &str, domain: &str, list: &List) -> Result<Domain> {
+        let mut longest_valid = None;
+
         let mut current = &list.root;
         let mut s_labels_len = 0;
+
         for label in domain.rsplit('.') {
             if let Some(child) = current.children.get(label) {
                 current = child;
                 s_labels_len += 1;
-                continue;
             } else if let Some(child) = current.children.get("*") {
                 // wildcard rule
                 current = child;
                 s_labels_len += 1;
-                continue;
             } else {
                 // no match rules
                 break;
             }
+
+            if let Some(list_leaf) = &current.leaf {
+                longest_valid = Some((list_leaf, s_labels_len));
+            }
         }
 
-        match &current.leaf {
-            Some(leaf) => {
+        match longest_valid {
+            Some((leaf, suffix_len)) => {
                 let typ = Some(leaf.typ);
 
-                let s_len = if leaf.is_exception_rule {
-                    s_labels_len - 1
+                let suffix_len = if leaf.is_exception_rule {
+                    suffix_len - 1
                 } else {
-                    s_labels_len
+                    suffix_len
                 };
 
-                let suffix = Some(Self::assemble(input, s_len));
-
+                let suffix = Some(Self::assemble(input, suffix_len));
                 let d_labels_len = domain.match_indices(".").count() + 1;
-                let registrable = if d_labels_len > s_len {
-                    Some(Self::assemble(input, s_len + 1))
+
+                let registrable = if d_labels_len > suffix_len {
+                    Some(Self::assemble(input, suffix_len + 1))
                 } else {
                     None
                 };
+
                 Ok(Domain {
                     full: input.to_owned(),
                     typ: typ,
