@@ -644,6 +644,7 @@ impl Domain {
 
         let mut current = &list.root;
         let mut s_labels_len = 0;
+        let mut wildcard_match = false;
 
         for label in domain.rsplit('.') {
             if let Some(child) = current.children.get(label) {
@@ -653,6 +654,7 @@ impl Domain {
                 // wildcard rule
                 current = child;
                 s_labels_len += 1;
+                wildcard_match = true;
             } else {
                 // no match rules
                 break;
@@ -665,7 +667,11 @@ impl Domain {
 
         match longest_valid {
             Some((leaf, suffix_len)) => {
-                let typ = Some(leaf.typ);
+                let typ = if !wildcard_match {
+                    Some(leaf.typ)
+                } else {
+                    None
+                };
 
                 let suffix_len = if leaf.is_exception_rule {
                     suffix_len - 1
