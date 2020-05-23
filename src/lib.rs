@@ -64,13 +64,12 @@
 extern crate error_chain;
 #[cfg(feature = "remote_list")]
 extern crate native_tls;
-#[macro_use]
-extern crate lazy_static;
-extern crate regex;
 extern crate idna;
 extern crate url;
 
 pub mod errors;
+
+mod matcher;
 
 #[cfg(feature = "remote_list")]
 #[cfg(test)]
@@ -92,7 +91,6 @@ use std::fmt;
 
 pub use errors::{Result, Error};
 
-use regex::RegexSet;
 use errors::{ErrorKind, ResultExt};
 #[cfg(feature = "remote_list")]
 use native_tls::TlsConnector;
@@ -181,48 +179,6 @@ pub enum Host {
 pub struct DnsName {
     name: String,
     domain: Option<Domain>,
-}
-
-lazy_static! {
-    // Regex for matching domain name labels
-    static ref LABEL: RegexSet = {
-        let exprs = vec![
-            // can be any combination of alphanumeric characters
-            r"^[[:alnum:]]+$",
-            // or it can start with an alphanumeric character
-            // then optionally be followed by any combination of
-            // alphanumeric characters and dashes before finally
-            // ending with an alphanumeric character
-            r"^[[:alnum:]]+[[:alnum:]-]*[[:alnum:]]+$",
-        ];
-        RegexSet::new(exprs).unwrap()
-    };
-
-    // Regex for matching the local-part of an
-    // email address
-    static ref LOCAL: RegexSet = {
-        // these characters can be anywhere in the expresion
-        let global = r#"[[:alnum:]!#$%&'*+/=?^_`{|}~-]"#;
-        // non-ascii characters (an also be unquoted)
-        let non_ascii = r#"[^\x00-\x7F]"#;
-        // the pattern to match
-        let quoted = r#"["(),\\:;<>@\[\]. ]"#;
-        // combined regex
-        let combined = format!(r#"({}*{}*)"#, global, non_ascii);
-
-        let exprs = vec![
-            // can be any combination of allowed characters
-            format!(r#"^{}+$"#, combined),
-            // can be any combination of allowed charaters
-            // separated by a . in between
-            format!(r#"^({0}+[.]?{0}+)+$"#, combined),
-            // can be a quoted string with allowed plus
-            // additional characters
-            format!(r#"^"({}*{}*)*"$"#, combined, quoted),
-        ];
-
-        RegexSet::new(exprs).unwrap()
-    };
 }
 
 /// Converts a type into a Url object
@@ -504,7 +460,7 @@ impl List {
         if local.chars().count() > 64
             || address.chars().count() > 254
             || (!local.starts_with('"') && local.contains(".."))
-            || !LOCAL.is_match(local)
+            || !matcher::is_email_local(local)
         {
             return Err(ErrorKind::InvalidEmail.into());
         }
@@ -616,7 +572,7 @@ impl Domain {
             // the tld must not be a number
             if i == 0 && label.parse::<f64>().is_ok() { return false; }
             // any label must only contain allowed characters
-            if !LABEL.is_match(label) { return false; }
+            if !matcher::is_label(label) { return false; }
         }
         true
     }
