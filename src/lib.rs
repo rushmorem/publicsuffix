@@ -60,8 +60,6 @@
 
 #![recursion_limit = "1024"]
 
-#[macro_use]
-extern crate error_chain;
 #[cfg(feature = "remote_list")]
 extern crate native_tls;
 extern crate idna;
@@ -91,7 +89,7 @@ use std::fmt;
 
 pub use errors::{Result, Error};
 
-use errors::{ErrorKind, ResultExt};
+use errors::ErrorKind;
 #[cfg(feature = "remote_list")]
 use native_tls::TlsConnector;
 use idna::{domain_to_unicode};
@@ -483,7 +481,7 @@ impl List {
     /// Parses any arbitrary string that can be used as a key in a DNS database
     pub fn parse_dns_name(&self, name: &str) -> Result<DnsName> {
         let mut dns_name = DnsName {
-            name: Domain::to_ascii(name).chain_err(|| {
+            name: Domain::to_ascii(name).map_err(|_| {
                 ErrorKind::InvalidDomain(name.into())
             })?,
             domain: None,
