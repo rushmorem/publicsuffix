@@ -1,12 +1,16 @@
 /// Check if input is a valid domain label
 pub fn is_label(input: &str) -> bool {
-    if input.is_empty() {
-        return false;
-    }
     let mut chars = input.chars();
 
+    // we need at least one char
+    let first = match chars.next() {
+        None => {
+            return false;
+        }
+        Some(c) => c,
+    };
+
     // it can start with an alphanumeric character
-    let first = chars.next().unwrap();
     if !first.is_ascii_alphanumeric() {
         return false;
     }
@@ -26,16 +30,18 @@ pub fn is_label(input: &str) -> bool {
 
 /// Check the local part of an email address (before @)
 pub fn is_email_local(input: &str) -> bool {
-    if input.is_empty() {
-        return false;
-    }
-
     let mut chars = input.chars();
 
-    let first = chars.next().unwrap();
+    // we need at least one char
+    let first = match chars.next() {
+        None => {
+            return false;
+        }
+        Some(c) => c,
+    };
 
     let last_index = input.len() - 2.min(input.len());
-    if first == ' '{
+    if first == ' ' {
         return false;
     } else if first == '"' {
         // quoted
