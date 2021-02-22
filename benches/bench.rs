@@ -1,21 +1,17 @@
-#![feature(test)]
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-extern crate test;
-
-#[bench]
-fn bench_com(b: &mut test::Bencher) {
+fn criterion_benchmark(c: &mut Criterion) {
     let list = publicsuffix::List::fetch().unwrap();
-    b.iter(|| {
-        let res = list.parse_domain("raw.github.com").unwrap();
-        assert_eq!(res.suffix().unwrap(), "com");
+    c.bench_function("bench raw.github.com", |b| {
+        b.iter(|| list.parse_domain(black_box("raw.github.com")).unwrap())
+    });
+    c.bench_function("bench www.city.yamanashi.yamanashi.jp", |b| {
+        b.iter(|| {
+            list.parse_domain(black_box("www.city.yamanashi.yamanashi.jp"))
+                .unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_jp(b: &mut test::Bencher) {
-    let list = publicsuffix::List::fetch().unwrap();
-    b.iter(|| {
-        let res = list.parse_domain("www.city.yamanashi.yamanashi.jp").unwrap();
-        assert_eq!(res.suffix().unwrap(), "yamanashi.yamanashi.jp");
-    });
-}
+criterion_group!(benches, criterion_benchmark);
+criterion_main!(benches);

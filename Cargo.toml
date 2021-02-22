@@ -8,6 +8,7 @@ documentation = "https://docs.rs/publicsuffix"
 readme = "README.md"
 keywords = ["tld", "gtld", "cctld", "domain", "psl"]
 authors = ["rushmorem <rushmore@webenchanter.com>"]
+edition = "2018"
 
 [features]
 default = ["remote_list"]
@@ -18,11 +19,16 @@ error-chain = { version = "0.12", default-features = false }
 idna = "0.2"
 regex = { version = "1.0", default-features = false, features = ["std"] }
 url = "2.0"
-lazy_static = "1.0"
+lazy_static = "1.4"
 
 [dependencies.native-tls]
 version = "0.2"
 optional = true
 
-[dev_dependencies]
+[dev-dependencies]
+criterion = "0.3"
 rspec = "=1.0.0-beta.3"
+
+[[bench]]
+name = "bench"
+harness = false

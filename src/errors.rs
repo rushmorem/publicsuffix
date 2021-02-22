@@ -1,4 +1,5 @@
-//! Errors returned by this library
+/// Errors returned by this library
+use error_chain::error_chain;
 
 #[cfg(feature = "remote_list")]
 use std::net::TcpStream;
