@@ -4,7 +4,7 @@
 //!
 //! ## Examples
 //!
-//! ```rust,norun
+//! ```rust,no_run
 //! extern crate publicsuffix;
 //!
 //! use publicsuffix::List;
@@ -58,11 +58,7 @@
 //! # fn main() {}
 //! ```
 
-#![recursion_limit = "1024"]
-use lazy_static::lazy_static;
-
-#[cfg(feature = "remote_list")]
-use native_tls;
+mod matcher;
 
 #[cfg(feature = "remote_list")]
 #[cfg(test)]
@@ -73,12 +69,11 @@ use std::{collections::HashMap, fmt, fs::File, io::Read, net::IpAddr, path::Path
 use std::{io::Write, net::TcpStream, time::Duration};
 
 pub mod errors;
-pub use crate::errors::{Error, ErrorKind, Result, ResultExt};
+pub use crate::errors::{Error, ErrorKind, Result};
 
 use idna::domain_to_unicode;
 #[cfg(feature = "remote_list")]
 use native_tls::TlsConnector;
-use regex::RegexSet;
 use url::Url;
 
 /// The official URL of the list
@@ -166,48 +161,6 @@ pub enum Host {
 pub struct DnsName {
     name: String,
     domain: Option<Domain>,
-}
-
-lazy_static! {
-    // Regex for matching domain name labels
-    static ref LABEL: RegexSet = {
-        let exprs = vec![
-            // can be any combination of alphanumeric characters
-            r"^[[:alnum:]]+$",
-            // or it can start with an alphanumeric character
-            // then optionally be followed by any combination of
-            // alphanumeric characters and dashes before finally
-            // ending with an alphanumeric character
-            r"^[[:alnum:]]+[[:alnum:]-]*[[:alnum:]]+$",
-        ];
-        RegexSet::new(exprs).unwrap()
-    };
-
-    // Regex for matching the local-part of an
-    // email address
-    static ref LOCAL: RegexSet = {
-        // these characters can be anywhere in the expresion
-        let global = r#"[[:alnum:]!#$%&'*+/=?^_`{|}~-]"#;
-        // non-ascii characters (an also be unquoted)
-        let non_ascii = r#"[^\x00-\x7F]"#;
-        // the pattern to match
-        let quoted = r#"["(),\\:;<>@\[\]. ]"#;
-        // combined regex
-        let combined = format!(r#"({}*{}*)"#, global, non_ascii);
-
-        let exprs = vec![
-            // can be any combination of allowed characters
-            format!(r#"^{}+$"#, combined),
-            // can be any combination of allowed charaters
-            // separated by a . in between
-            format!(r#"^({0}+[.]?{0}+)+$"#, combined),
-            // can be a quoted string with allowed plus
-            // additional characters
-            format!(r#"^"({}*{}*)*"$"#, combined, quoted),
-        ];
-
-        RegexSet::new(exprs).unwrap()
-    };
 }
 
 /// Converts a type into a Url object
@@ -509,7 +462,7 @@ impl List {
         if local.chars().count() > 64
             || address.chars().count() > 254
             || (!local.starts_with('"') && local.contains(".."))
-            || !LOCAL.is_match(local)
+            || !matcher::is_email_local(local)
         {
             return Err(ErrorKind::InvalidEmail.into());
         }
@@ -532,7 +485,7 @@ impl List {
     /// Parses any arbitrary string that can be used as a key in a DNS database
     pub fn parse_dns_name(&self, name: &str) -> Result<DnsName> {
         let mut dns_name = DnsName {
-            name: Domain::to_ascii(name).chain_err(|| ErrorKind::InvalidDomain(name.into()))?,
+            name: Domain::to_ascii(name).map_err(|_| ErrorKind::InvalidDomain(name.into()))?,
             domain: None,
         };
         if let Ok(mut domain) = Domain::parse(name, self, false) {
@@ -627,7 +580,7 @@ impl Domain {
                 return false;
             }
             // any label must only contain allowed characters
-            if !LABEL.is_match(label) {
+            if !matcher::is_label(label) {
                 return false;
             }
         }

@@ -15,11 +15,8 @@ default = ["remote_list"]
 remote_list = ["native-tls"]
 
 [dependencies]
-error-chain = { version = "0.12", default-features = false }
 idna = "0.2"
-regex = { version = "1.0", default-features = false, features = ["std"] }
 url = "2.0"
-lazy_static = "1.4"
 
 [dependencies.native-tls]
 version = "0.2"
