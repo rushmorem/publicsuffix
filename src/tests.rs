@@ -1,8 +1,7 @@
 extern crate rspec;
 
-use {List, request};
-use errors::ErrorKind;
 use self::rspec::context::rdescribe;
+use crate::{errors::ErrorKind, request, List};
 
 #[test]
 fn list_behaviour() {
@@ -34,10 +33,17 @@ fn list_behaviour() {
 
         for (i, line) in body.lines().enumerate() {
             match line {
-                line if line.trim().is_empty() => { parse = true; continue; }
-                line if line.starts_with("//") => { continue; }
+                line if line.trim().is_empty() => {
+                    parse = true;
+                    continue;
+                }
+                line if line.starts_with("//") => {
+                    continue;
+                }
                 line => {
-                    if !parse { continue; }
+                    if !parse {
+                        continue;
+                    }
                     let mut test = line.split_whitespace().peekable();
                     if test.peek().is_none() {
                         continue;
@@ -45,21 +51,33 @@ fn list_behaviour() {
                     let input = match test.next() {
                         Some("null") => "",
                         Some(res) => res,
-                        None => { panic!(format!("line {} of the test file doesn't seem to be valid", i)); },
+                        None => {
+                            panic!(format!(
+                                "line {} of the test file doesn't seem to be valid",
+                                i
+                            ));
+                        }
                     };
                     let (expected_root, expected_suffix) = match test.next() {
                         Some("null") => (None, None),
                         Some(root) => {
                             let suffix = {
                                 let parts: Vec<&str> = root.split('.').rev().collect();
-                                (&parts[..parts.len()-1]).iter().rev()
+                                (&parts[..parts.len() - 1])
+                                    .iter()
+                                    .rev()
                                     .map(|part| *part)
                                     .collect::<Vec<_>>()
                                     .join(".")
                             };
                             (Some(root.to_string()), Some(suffix.to_string()))
-                        },
-                        None => { panic!(format!("line {} of the test file doesn't seem to be valid", i)); },
+                        }
+                        None => {
+                            panic!(format!(
+                                "line {} of the test file doesn't seem to be valid",
+                                i
+                            ));
+                        }
                     };
                     let (found_root, found_suffix) = match list.parse_domain(input) {
                         Ok(domain) => {
@@ -72,10 +90,12 @@ fn list_behaviour() {
                                 None => None,
                             };
                             (found_root, found_suffix)
-                        },
+                        }
                         Err(_) => (None, None),
                     };
-                    if expected_root != found_root || (expected_root.is_some() && expected_suffix != found_suffix) {
+                    if expected_root != found_root
+                        || (expected_root.is_some() && expected_suffix != found_suffix)
+                    {
                         let msg = format!("\n\nGiven `{}`:\nWe expected root domain to be `{:?}` and suffix be `{:?}`\nBut instead, we have `{:?}` as root domain and `{:?}` as suffix.\nWe are on line {} of `test_psl.txt`.\n\n",
                                           input, expected_root, expected_suffix, found_root, found_suffix, i+1);
                         panic!(msg);
@@ -98,31 +118,43 @@ fn list_behaviour() {
             }
         });
 
-        ctx.it("should allow a single label with a single trailing dot", || {
-            assert!(list.parse_domain("com.").is_ok());
-        });
+        ctx.it(
+            "should allow a single label with a single trailing dot",
+            || {
+                assert!(list.parse_domain("com.").is_ok());
+            },
+        );
 
-        ctx.it("should always have a suffix for single-label domains", || {
-            let domains = vec![
-                // real TLDs
-                "com",
-                "saarland",
-                "museum.",
-                // non-existant TLDs
-                "localhost",
-                "madeup",
-                "with-dot.",
-            ];
-            for domain in domains {
-                let res = list.parse_domain(domain).unwrap();
-                assert_eq!(res.suffix(), Some(domain.trim_end_matches('.')));
-                assert!(res.root().is_none());
-            }
-        });
+        ctx.it(
+            "should always have a suffix for single-label domains",
+            || {
+                let domains = vec![
+                    // real TLDs
+                    "com",
+                    "saarland",
+                    "museum.",
+                    // non-existant TLDs
+                    "localhost",
+                    "madeup",
+                    "with-dot.",
+                ];
+                for domain in domains {
+                    let res = list.parse_domain(domain).unwrap();
+                    assert_eq!(res.suffix(), Some(domain.trim_end_matches('.')));
+                    assert!(res.root().is_none());
+                }
+            },
+        );
 
-        ctx.it("should have the same result with or without the trailing dot", || {
-                assert_eq!(list.parse_domain("com.").unwrap(), list.parse_domain("com").unwrap());
-        });
+        ctx.it(
+            "should have the same result with or without the trailing dot",
+            || {
+                assert_eq!(
+                    list.parse_domain("com.").unwrap(),
+                    list.parse_domain("com").unwrap()
+                );
+            },
+        );
 
         ctx.it("should not have empty labels", || {
             assert!(list.parse_domain("exa..mple.com").is_err());
@@ -135,7 +167,6 @@ fn list_behaviour() {
         ctx.it("should not start with a dash", || {
             assert!(list.parse_domain("-example.com").is_err());
         });
-
 
         ctx.it("should not end with a dash", || {
             assert!(list.parse_domain("example-.com").is_err());
@@ -159,12 +190,17 @@ fn list_behaviour() {
         });
 
         ctx.it("should not be an IPv6 address", || {
-            assert!(list.parse_domain("fd79:cdcb:38cc:9dd:f686:e06d:32f3:c123").is_err());
+            assert!(list
+                .parse_domain("fd79:cdcb:38cc:9dd:f686:e06d:32f3:c123")
+                .is_err());
         });
 
-        ctx.it("should allow numbers only labels that are not the tld", || {
-            assert!(list.parse_domain("127.com").is_ok());
-        });
+        ctx.it(
+            "should allow numbers only labels that are not the tld",
+            || {
+                assert!(list.parse_domain("127.com").is_ok());
+            },
+        );
 
         ctx.it("should not have more than 127 labels", || {
             let mut too_many_labels_domain = String::from("a");
@@ -193,6 +229,11 @@ fn list_behaviour() {
             assert_eq!(Some("com"), domain.suffix());
             assert_eq!(Some("fbsbx.com"), domain.root());
         });
+
+        ctx.it("should not indicate wildcard matched domains as having known suffix", || {
+            let domain = list.parse_domain("some.total.nonsensetld").unwrap();
+            assert!(!domain.has_known_suffix());
+        });
     });
 
     rdescribe("a DNS name", |ctx| {
@@ -209,27 +250,25 @@ fn list_behaviour() {
             }
         });
 
-        ctx.it("should allow extracting the correct domain name where possible", || {
-            let names = vec![
-                ("_tcp.example.com.", "example.com"),
-                ("_telnet._tcp.example.com.", "example.com"),
-                ("*.example.com.", "example.com"),
-            ];
-            for (name, domain) in names {
-                println!("{}'s root domain should be {}", name, domain);
-                let name = list.parse_dns_name(name).unwrap();
-                let root = name.domain().unwrap().root();
-                assert_eq!(root, Some(domain));
-            }
-        });
+        ctx.it(
+            "should allow extracting the correct domain name where possible",
+            || {
+                let names = vec![
+                    ("_tcp.example.com.", "example.com"),
+                    ("_telnet._tcp.example.com.", "example.com"),
+                    ("*.example.com.", "example.com"),
+                ];
+                for (name, domain) in names {
+                    println!("{}'s root domain should be {}", name, domain);
+                    let name = list.parse_dns_name(name).unwrap();
+                    let root = name.domain().unwrap().root();
+                    assert_eq!(root, Some(domain));
+                }
+            },
+        );
 
         ctx.it("should not extract any domain where not possible", || {
-            let names = vec![
-                "_tcp.com.",
-                "_telnet._tcp.com.",
-                "*.com.",
-                "ex!mple.com.",
-            ];
+            let names = vec!["_tcp.com.", "_telnet._tcp.com.", "*.com.", "ex!mple.com."];
             for name in names {
                 println!("{} should not have any root domain", name);
                 let name = list.parse_dns_name(name).unwrap();
@@ -252,7 +291,9 @@ fn list_behaviour() {
         });
 
         ctx.it("can be an IPv6 address", || {
-            assert!(list.parse_host("fd79:cdcb:38cc:9dd:f686:e06d:32f3:c123").is_ok());
+            assert!(list
+                .parse_host("fd79:cdcb:38cc:9dd:f686:e06d:32f3:c123")
+                .is_ok());
         });
 
         ctx.it("can be a domain name", || {
@@ -268,7 +309,10 @@ fn list_behaviour() {
         });
 
         ctx.it("an IPv6 address should parse into an IP object", || {
-            assert!(list.parse_host("fd79:cdcb:38cc:9dd:f686:e06d:32f3:c123").unwrap().is_ip());
+            assert!(list
+                .parse_host("fd79:cdcb:38cc:9dd:f686:e06d:32f3:c123")
+                .unwrap()
+                .is_ip());
         });
 
         ctx.it("a domain name should parse into a domain object", || {
@@ -276,15 +320,27 @@ fn list_behaviour() {
         });
 
         ctx.it("can be parsed from a URL with a domain as hostname", || {
-            assert!(list.parse_url("https://publicsuffix.org/list/").unwrap().is_domain());
+            assert!(list
+                .parse_url("https://publicsuffix.org/list/")
+                .unwrap()
+                .is_domain());
         });
 
-        ctx.it("can be parsed from a URL with an IP address as hostname", || {
-            assert!(list.parse_url("https://127.38.53.247:8080/list/").unwrap().is_ip());
-        });
+        ctx.it(
+            "can be parsed from a URL with an IP address as hostname",
+            || {
+                assert!(list
+                    .parse_url("https://127.38.53.247:8080/list/")
+                    .unwrap()
+                    .is_ip());
+            },
+        );
 
         ctx.it("can be parsed from a URL using `parse_str`", || {
-            assert!(list.parse_str("https://127.38.53.247:8080/list/").unwrap().is_ip());
+            assert!(list
+                .parse_str("https://127.38.53.247:8080/list/")
+                .unwrap()
+                .is_ip());
         });
 
         ctx.it("can be parsed from a non-URL using `parse_str`", || {
@@ -340,11 +396,17 @@ fn list_behaviour() {
         });
 
         ctx.it("should allow parsing emails as str", || {
-            assert!(list.parse_str("prettyandsimple@example.com").unwrap().is_domain());
+            assert!(list
+                .parse_str("prettyandsimple@example.com")
+                .unwrap()
+                .is_domain());
         });
 
         ctx.it("should allow parsing emails as URL", || {
-            assert!(list.parse_url("mailto://prettyandsimple@example.com").unwrap().is_domain());
+            assert!(list
+                .parse_url("mailto://prettyandsimple@example.com")
+                .unwrap()
+                .is_domain());
         });
 
         ctx.it("should allow parsing IDN email addresses", || {
