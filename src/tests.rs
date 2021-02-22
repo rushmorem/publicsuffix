@@ -230,10 +230,13 @@ fn list_behaviour() {
             assert_eq!(Some("fbsbx.com"), domain.root());
         });
 
-        ctx.it("should not indicate wildcard matched domains as having known suffix", || {
-            let domain = list.parse_domain("some.total.nonsensetld").unwrap();
-            assert!(!domain.has_known_suffix());
-        });
+        ctx.it(
+            "should not indicate wildcard matched domains as having known suffix",
+            || {
+                let domain = list.parse_domain("some.total.nonsensetld").unwrap();
+                assert!(!domain.has_known_suffix());
+            },
+        );
     });
 
     rdescribe("a DNS name", |ctx| {

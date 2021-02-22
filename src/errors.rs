@@ -1,5 +1,4 @@
 /// Errors returned by this library
-
 use std::fmt;
 use std::io;
 use url::ParseError;
