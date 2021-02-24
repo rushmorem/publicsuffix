@@ -53,10 +53,8 @@ pub fn is_email_local(input: &str) -> bool {
                 if c != '"' {
                     return false;
                 }
-            } else {
-                if !is_combined(c) && !is_quoted(c) {
-                    return false;
-                }
+            } else if !is_combined(c) && !is_quoted(c) {
+                return false;
             }
         }
     } else {

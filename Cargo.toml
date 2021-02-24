@@ -15,16 +15,17 @@ default = ["remote_list"]
 remote_list = ["native-tls"]
 
 [dependencies]
-idna = "0.2"
-url = "2.0"
+idna = "0.2.2"
+url = "2.2.1"
 
 [dependencies.native-tls]
-version = "0.2"
+version = "0.2.7"
 optional = true
 
 [dev-dependencies]
-criterion = "0.3"
-rspec = "=1.0.0-beta.3"
+criterion = "0.3.4"
+rspec = "1.0.0"
+lazy_static = "1.4.0"
 
 [[bench]]
 name = "bench"
