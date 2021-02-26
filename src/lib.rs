@@ -314,6 +314,16 @@ impl List {
         Self::from_str(&string)
     }
 
+    /// Build the list from a str
+    ///
+    /// The list doesn't always have to come from a file. You can maintain your own
+    /// list, say in a DBMS. You can then pull it at runtime and build the list from
+    /// the resulting str.
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(string: &str) -> Result<List> {
+        Self::build(string)
+    }
+
     /// Creates an empty List without any rules
     ///
     /// Sometimes all you want is to do syntax checks. If you don't really care whether
@@ -488,19 +498,6 @@ impl List {
             }
         }
         Ok(dns_name)
-    }
-}
-
-/// Build the list from a str
-///
-/// The list doesn't always have to come from a file. You can maintain your own
-/// list, say in a DBMS. You can then pull it at runtime and build the list from
-/// the resulting str.
-impl FromStr for List {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<List> {
-        Self::build(s)
     }
 }
 
