@@ -1,32 +1,26 @@
 [package]
 name = "publicsuffix"
 description = "Robust domain name parsing and RFC compliant email address validation"
-version = "1.5.7-alpha.0"
+version = "2.0.0-alpha.0"
 license = "MIT/Apache-2.0"
 repository = "https://github.com/rushmorem/publicsuffix"
 documentation = "https://docs.rs/publicsuffix"
 readme = "README.md"
-keywords = ["tld", "gtld", "cctld", "domain", "psl"]
+keywords = ["tld", "gtld", "cctld", "psl", "no_std"]
 authors = ["rushmorem <rushmore@webenchanter.com>"]
 edition = "2018"
 
 [features]
-default = ["remote_list"]
-remote_list = ["native-tls"]
+default = ["punycode"]
+punycode = ["idna"]
+std = []
 
 [dependencies]
-idna = "0.2.2"
-url = "2.2.1"
-
-[dependencies.native-tls]
-version = "0.2.7"
-optional = true
+indexmap = "1.6.2"
+psl-types = "2.0.0"
+idna = { version = "0.2.2", optional = true }
 
 [dev-dependencies]
-criterion = "0.3.4"
+lazy_static = "1"
+psl-lexer = "0.3.1"
 rspec = "1.0.0"
-lazy_static = "1.4.0"
-
-[[bench]]
-name = "bench"
-harness = false
