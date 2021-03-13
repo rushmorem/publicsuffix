@@ -8,16 +8,27 @@ extern crate alloc;
 mod error;
 
 use crate::alloc::borrow::ToOwned;
+#[cfg(feature = "anycase")]
+use alloc::string::String;
+#[cfg(not(feature = "anycase"))]
 use alloc::vec::Vec;
+#[cfg(feature = "anycase")]
+use core::str;
 use core::str::{from_utf8, FromStr};
 use indexmap::IndexMap;
+#[cfg(feature = "anycase")]
+use unicase::UniCase;
 
 pub use error::Error;
 pub use psl_types::{Domain, Info, List as Psl, Suffix, Type};
 
+#[cfg(not(feature = "anycase"))]
 type Children = IndexMap<Vec<u8>, Node>;
 
-const WILDCARD: &[u8] = b"*";
+#[cfg(feature = "anycase")]
+type Children = IndexMap<UniCase<String>, Node>;
+
+const WILDCARD: &str = "*";
 
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 struct Node {
@@ -40,7 +51,10 @@ impl List {
     pub fn new() -> Self {
         let mut children = Children::new();
         children.insert(
-            WILDCARD.to_vec(),
+            #[cfg(not(feature = "anycase"))]
+            WILDCARD.as_bytes().to_vec(),
+            #[cfg(feature = "anycase")]
+            UniCase::new(WILDCARD.to_owned()),
             Node {
                 leaf: Some(Default::default()),
                 ..Default::default()
@@ -79,10 +93,16 @@ impl List {
             if label.is_empty() {
                 return Err(Error::EmptyLabel(rule.to_owned()));
             }
-            current = current
-                .children
-                .entry(label.as_bytes().to_vec())
-                .or_insert_with(Default::default);
+
+            let children = &mut current.children;
+
+            #[cfg(not(feature = "anycase"))]
+            let entry = children.entry(label.as_bytes().to_vec());
+
+            #[cfg(feature = "anycase")]
+            let entry = children.entry(UniCase::new(label.to_owned()));
+
+            current = entry.or_insert_with(Default::default);
         }
 
         current.leaf = Some(Leaf {
@@ -106,16 +126,29 @@ impl<'a> Psl<'a> for List {
         let mut current = &self.0;
         for label in labels {
             let is_first_label = len == 0;
-            match current.children.get(label) {
+            #[cfg(not(feature = "anycase"))]
+            let node_opt = current.children.get(label);
+            #[cfg(feature = "anycase")]
+            let node_opt = match str::from_utf8(label) {
+                Ok(label) => current.children.get(&UniCase::new(label.to_owned())),
+                Err(_) => return Info { len: 0, typ: None },
+            };
+            match node_opt {
                 Some(node) => {
                     current = node;
                 }
-                None => match current.children.get(WILDCARD) {
-                    Some(node) => {
-                        current = node;
+                None => {
+                    #[cfg(not(feature = "anycase"))]
+                    let node_opt = current.children.get(WILDCARD.as_bytes());
+                    #[cfg(feature = "anycase")]
+                    let node_opt = current.children.get(&UniCase::new(WILDCARD.to_owned()));
+                    match node_opt {
+                        Some(node) => {
+                            current = node;
+                        }
+                        None => break,
                     }
-                    None => break,
-                },
+                }
             }
             let label_len = label.len();
             len += if is_first_label {

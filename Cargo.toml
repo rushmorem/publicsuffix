@@ -11,14 +11,26 @@ authors = ["rushmorem <rushmore@webenchanter.com>"]
 edition = "2018"
 
 [features]
+# Punycode is enabled by default to be feature parity with the `psl` crate
+# by default, making switching between the 2 work seemlessly out of the box
 default = ["punycode"]
+
+# Adds support for looking up domain names in any case
+anycase = ["unicase"]
+
+# Adds support for looking up domain names in ascii format (normalised punycode)
+# see `idna::domain_to_ascii`. Since `idna` doesn't support `no_std` environments
+# this feature disables `no_std`
 punycode = ["idna"]
+
+# Adds support for `std::error::Error`
 std = []
 
 [dependencies]
+idna = { version = "0.2.2", optional = true }
 indexmap = "1.6.2"
 psl-types = "2.0.0"
-idna = { version = "0.2.2", optional = true }
+unicase = { version = "2.6.0", default-features = false, optional = true }
 
 [dev-dependencies]
 lazy_static = "1.4.0"

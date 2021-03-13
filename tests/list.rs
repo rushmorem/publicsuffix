@@ -134,7 +134,8 @@ fn list_behaviour() {
             ),
             ("yokohama.jp", "jp"),
             ("kobe.jp", "jp"),
-            ("foo.bar.platformsh.site", "bar.platformsh.site"),
+            // tests support for `anycase` so that feature should be enabled for this test to pass
+            ("foo.bar.platformsh.Site", "bar.platformsh.Site"),
             ("bar.platformsh.site", "bar.platformsh.site"),
             ("platform.sh", "sh"),
             ("sh", "sh"),
