@@ -22,7 +22,7 @@ use publicsuffix::{Psl, List};
 
 // the official list can be found at
 // https://publicsuffix.org/list/public_suffix_list.dat
-let list: List = "<-- your public suffix here -->".parse()?;
+let list: List = "<-- your public suffix list here -->".parse()?;
 
 let suffix = list.suffix(b"www.example.com")?;
 assert_eq!(suffix.as_bytes(), b"com");
