@@ -1,6 +1,6 @@
 [package]
 name = "publicsuffix"
-description = "Robust domain name parsing and RFC compliant email address validation"
+description = "A native library for Mozilla's Public Suffix List"
 version = "2.0.1-alpha.0"
 license = "MIT/Apache-2.0"
 repository = "https://github.com/rushmorem/publicsuffix"
@@ -21,6 +21,6 @@ psl-types = "2.0.0"
 idna = { version = "0.2.2", optional = true }
 
 [dev-dependencies]
-lazy_static = "1"
+lazy_static = "1.4.0"
 psl-lexer = "0.3.1"
 rspec = "1.0.0"
