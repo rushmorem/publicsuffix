@@ -22,6 +22,9 @@ use unicase::UniCase;
 pub use error::Error;
 pub use psl_types::{Domain, Info, List as Psl, Suffix, Type};
 
+/// The official URL of the list
+pub const LIST_URL: &str = "https://publicsuffix.org/list/public_suffix_list.dat";
+
 #[cfg(not(feature = "anycase"))]
 type Children = IndexMap<Vec<u8>, Node>;
 
