@@ -15,7 +15,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "anycase")]
 use core::str;
 use core::str::{from_utf8, FromStr};
-use indexmap::IndexMap;
+use hashbrown::HashMap;
 #[cfg(feature = "anycase")]
 use unicase::UniCase;
 
@@ -26,10 +26,10 @@ pub use psl_types::{Domain, Info, List as Psl, Suffix, Type};
 pub const LIST_URL: &str = "https://publicsuffix.org/list/public_suffix_list.dat";
 
 #[cfg(not(feature = "anycase"))]
-type Children = IndexMap<Vec<u8>, Node>;
+type Children = HashMap<Vec<u8>, Node>;
 
 #[cfg(feature = "anycase")]
-type Children = IndexMap<UniCase<String>, Node>;
+type Children = HashMap<UniCase<String>, Node>;
 
 const WILDCARD: &str = "*";
 
