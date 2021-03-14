@@ -29,7 +29,7 @@ std = []
 [dependencies]
 idna = { version = "0.2.2", optional = true }
 indexmap = "1.6.2"
-psl-types = "2.0.0"
+psl-types = "2.0.1"
 unicase = { version = "2.6.0", default-features = false, optional = true }
 
 [dev-dependencies]
