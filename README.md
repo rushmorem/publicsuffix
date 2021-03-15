@@ -1,6 +1,14 @@
-# A native Rust library for Mozilla's Public Suffix List
+# PublicSuffix
 
-[![CI](https://github.com/rushmorem/publicsuffix/actions/workflows/ci.yml/badge.svg)](https://github.com/rushmorem/publicsuffix/actions/workflows/ci.yml) [![Latest Version](https://img.shields.io/crates/v/publicsuffix.svg)](https://crates.io/crates/publicsuffix) [![Docs](https://docs.rs/publicsuffix/badge.svg)](https://docs.rs/publicsuffix)
+A native Rust library for Mozilla's Public Suffix List
+
+[![CI](https://github.com/rushmorem/publicsuffix/actions/workflows/ci.yml/badge.svg)](https://github.com/rushmorem/publicsuffix/actions/workflows/ci.yml)
+[![Latest Version](https://img.shields.io/crates/v/publicsuffix.svg)](https://crates.io/crates/publicsuffix)
+[![Crates.io downloads](https://img.shields.io/crates/d/publicsuffix)](https://crates.io/crates/publicsuffix)
+[![Docs](https://docs.rs/publicsuffix/badge.svg)](https://docs.rs/publicsuffix)
+[![Minimum supported Rust version](https://img.shields.io/badge/rustc-1.41+-yellow.svg)](https://www.rust-lang.org)
+![Maintenance](https://img.shields.io/badge/maintenance-actively--developed-brightgreen.svg)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 This library uses Mozilla's [Public Suffix List](https://publicsuffix.org) to reliably determine the suffix of a domain name. This crate provides a dynamic list that can be updated at runtime. If you need a faster, though static list, please use the [psl](https://crates.io/crates/psl) crate instead.
 
