@@ -40,4 +40,4 @@ psl-lexer = "0.3.1"
 rspec = "1.0.0"
 
 [package.metadata.docs.rs]
-features = ["anycase", "punycode", "std"]
+features = ["default", "anycase", "std"]
