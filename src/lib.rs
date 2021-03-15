@@ -117,9 +117,9 @@ impl List {
     }
 }
 
-impl<'a> Psl<'a> for List {
+impl Psl for List {
     #[inline]
-    fn find<T>(&self, labels: T) -> Info
+    fn find<'a, T>(&self, labels: T) -> Info
     where
         T: Iterator<Item = &'a [u8]>,
     {
