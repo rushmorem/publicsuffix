@@ -38,3 +38,6 @@ unicase = { version = "2.6.0", default-features = false, optional = true }
 lazy_static = "1.4.0"
 psl-lexer = "0.3.1"
 rspec = "1.0.0"
+
+[package.metadata.docs.rs]
+features = ["anycase", "punycode", "std"]
