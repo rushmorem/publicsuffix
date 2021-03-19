@@ -6,6 +6,7 @@
 extern crate alloc;
 
 mod error;
+mod fxhash;
 
 use crate::alloc::borrow::ToOwned;
 #[cfg(feature = "anycase")]
@@ -15,6 +16,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "anycase")]
 use core::str;
 use core::str::{from_utf8, FromStr};
+use fxhash::FxBuildHasher;
 use hashbrown::HashMap;
 #[cfg(feature = "anycase")]
 use unicase::UniCase;
@@ -26,10 +28,10 @@ pub use psl_types::{Domain, Info, List as Psl, Suffix, Type};
 pub const LIST_URL: &str = "https://publicsuffix.org/list/public_suffix_list.dat";
 
 #[cfg(not(feature = "anycase"))]
-type Children = HashMap<Vec<u8>, Node>;
+type Children = HashMap<Vec<u8>, Node, FxBuildHasher>;
 
 #[cfg(feature = "anycase")]
-type Children = HashMap<UniCase<String>, Node>;
+type Children = HashMap<UniCase<String>, Node, FxBuildHasher>;
 
 const WILDCARD: &str = "*";
 
@@ -52,7 +54,7 @@ pub struct List(Node);
 impl List {
     /// Creates a new list with default wildcard rule support
     pub fn new() -> Self {
-        let mut children = Children::new();
+        let mut children = Children::default();
         children.insert(
             #[cfg(not(feature = "anycase"))]
             WILDCARD.as_bytes().to_vec(),
