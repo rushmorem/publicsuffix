@@ -61,7 +61,9 @@ fn list_behaviour() {
                             ));
                         }
                     };
-                    if !expected_tld(input) {
+                    if !expected_tld(input)
+                        || (cfg!(not(feature = "punycode")) && input.contains("xn--"))
+                    {
                         continue;
                     }
                     let (expected_root, expected_suffix) = match test.next() {
@@ -142,6 +144,7 @@ fn list_behaviour() {
             (".", "."),
             ("example.com.", "com."),
             ("www.食狮.中国", "中国"),
+            #[cfg(feature = "punycode")]
             ("www.xn--85x722f.xn--55qx5d.cn", "xn--55qx5d.cn"),
             ("a.b.example.uk.com", "uk.com"),
             ("_tcp.example.com.", "com."),
@@ -192,6 +195,7 @@ fn list_behaviour() {
             (".", false, None),
             ("example.gafregsrse", false, None),
             ("www.食狮.中国", true, Some(Type::Icann)),
+            #[cfg(feature = "punycode")]
             ("www.xn--85x722f.xn--55qx5d.cn", true, Some(Type::Icann)),
         ];
 
