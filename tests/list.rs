@@ -3,7 +3,6 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::{env, mem, str};
 
-use psl_lexer::request;
 use publicsuffix::{List, Psl, Type};
 use rspec::report::ExampleResult;
 
@@ -23,14 +22,15 @@ lazy_static::lazy_static! {
 #[test]
 fn list_behaviour() {
     rspec::run(&rspec::describe("the official test", (), |ctx| {
-        let tests = "https://raw.githubusercontent.com/publicsuffix/list/master/tests/tests.txt";
-        let body = request(tests).unwrap_or_else(|_| {
+        let body = {
+            // `tests.txt` was downloaded from
+            // https://raw.githubusercontent.com/publicsuffix/list/master/tests/tests.txt
             let path = Path::new(ROOT.as_str()).join("tests").join("tests.txt");
             let mut file = File::open(path).unwrap();
             let mut contents = String::new();
             file.read_to_string(&mut contents).unwrap();
             contents
-        });
+        };
 
         let mut parse = false;
 
