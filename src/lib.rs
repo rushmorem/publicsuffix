@@ -5,21 +5,21 @@
 
 extern crate alloc;
 
+#[cfg(feature = "anycase")]
+mod anycase;
 mod error;
 mod fxhash;
 
 use crate::alloc::borrow::ToOwned;
-#[cfg(feature = "anycase")]
-use alloc::string::String;
 #[cfg(not(feature = "anycase"))]
 use alloc::vec::Vec;
+#[cfg(feature = "anycase")]
+use anycase::AnyCase;
 #[cfg(feature = "anycase")]
 use core::str;
 use core::str::{from_utf8, FromStr};
 use fxhash::FxBuildHasher;
 use hashbrown::HashMap;
-#[cfg(feature = "anycase")]
-use unicase::UniCase;
 
 pub use error::Error;
 pub use psl_types::{Domain, Info, List as Psl, Suffix, Type};
@@ -31,7 +31,7 @@ pub const LIST_URL: &str = "https://publicsuffix.org/list/public_suffix_list.dat
 type Children = HashMap<Vec<u8>, Node, FxBuildHasher>;
 
 #[cfg(feature = "anycase")]
-type Children = HashMap<UniCase<String>, Node, FxBuildHasher>;
+type Children = HashMap<AnyCase<'static>, Node, FxBuildHasher>;
 
 const WILDCARD: &str = "*";
 
@@ -59,7 +59,7 @@ impl List {
             #[cfg(not(feature = "anycase"))]
             WILDCARD.as_bytes().to_vec(),
             #[cfg(feature = "anycase")]
-            UniCase::new(WILDCARD.to_owned()),
+            AnyCase::from(WILDCARD.to_owned()),
             Node {
                 leaf: Some(Default::default()),
                 ..Default::default()
@@ -105,7 +105,7 @@ impl List {
             let entry = children.entry(label.as_bytes().to_vec());
 
             #[cfg(feature = "anycase")]
-            let entry = children.entry(UniCase::new(label.to_owned()));
+            let entry = children.entry(AnyCase::from(label.to_owned()));
 
             current = entry.or_insert_with(Default::default);
         }
@@ -135,7 +135,7 @@ impl Psl for List {
             let node_opt = current.children.get(label);
             #[cfg(feature = "anycase")]
             let node_opt = match str::from_utf8(label) {
-                Ok(label) => current.children.get(&UniCase::new(label.to_owned())),
+                Ok(label) => current.children.get(&AnyCase::from(label)),
                 Err(_) => return Info { len: 0, typ: None },
             };
             match node_opt {
@@ -146,7 +146,7 @@ impl Psl for List {
                     #[cfg(not(feature = "anycase"))]
                     let node_opt = current.children.get(WILDCARD.as_bytes());
                     #[cfg(feature = "anycase")]
-                    let node_opt = current.children.get(&UniCase::new(WILDCARD.to_owned()));
+                    let node_opt = current.children.get(&AnyCase::from(WILDCARD));
                     match node_opt {
                         Some(node) => {
                             current = node;
