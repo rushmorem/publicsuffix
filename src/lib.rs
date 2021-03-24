@@ -5,21 +5,18 @@
 
 extern crate alloc;
 
-#[cfg(feature = "anycase")]
-mod anycase;
 mod error;
 mod fxhash;
 
-use crate::alloc::borrow::ToOwned;
-#[cfg(not(feature = "anycase"))]
-use alloc::vec::Vec;
-#[cfg(feature = "anycase")]
-use anycase::AnyCase;
+use alloc::borrow::ToOwned;
+use core::hash::{Hash, Hasher};
 #[cfg(feature = "anycase")]
 use core::str;
 use core::str::{from_utf8, FromStr};
-use fxhash::FxBuildHasher;
+use fxhash::{FxBuildHasher, FxHasher};
 use hashbrown::HashMap;
+#[cfg(feature = "anycase")]
+use unicase::UniCase;
 
 pub use error::Error;
 pub use psl_types::{Domain, Info, List as Psl, Suffix, Type};
@@ -27,11 +24,7 @@ pub use psl_types::{Domain, Info, List as Psl, Suffix, Type};
 /// The official URL of the list
 pub const LIST_URL: &str = "https://publicsuffix.org/list/public_suffix_list.dat";
 
-#[cfg(not(feature = "anycase"))]
-type Children = HashMap<Vec<u8>, Node, FxBuildHasher>;
-
-#[cfg(feature = "anycase")]
-type Children = HashMap<AnyCase<'static>, Node, FxBuildHasher>;
+type Children = HashMap<u64, Node, FxBuildHasher>;
 
 const WILDCARD: &str = "*";
 
@@ -49,7 +42,9 @@ struct Leaf {
 
 /// A dynamic public suffix list
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct List(Node);
+pub struct List {
+    rules: Node,
+}
 
 impl List {
     /// Creates a new list with default wildcard rule support
@@ -57,18 +52,20 @@ impl List {
         let mut children = Children::default();
         children.insert(
             #[cfg(not(feature = "anycase"))]
-            WILDCARD.as_bytes().to_vec(),
+            hash(WILDCARD.as_bytes()),
             #[cfg(feature = "anycase")]
-            AnyCase::from(WILDCARD.to_owned()),
+            hash(UniCase::new(WILDCARD)),
             Node {
                 leaf: Some(Default::default()),
                 ..Default::default()
             },
         );
-        Self(Node {
-            children,
-            ..Default::default()
-        })
+        Self {
+            rules: Node {
+                children,
+                ..Default::default()
+            },
+        }
     }
 
     /// Creates a new list from a byte slice
@@ -80,7 +77,7 @@ impl List {
 
     /// Checks to see if the list is empty, ignoring the wildcard rule
     pub fn is_empty(&self) -> bool {
-        self.0.children.len() < 2
+        self.rules.children.len() < 2
     }
 
     fn append(&mut self, mut rule: &str, typ: Type) -> Result<(), Error> {
@@ -93,21 +90,18 @@ impl List {
             rule = &rule[1..];
         }
 
-        let mut current = &mut self.0;
+        let mut current = &mut self.rules;
         for label in rule.rsplit('.') {
             if label.is_empty() {
                 return Err(Error::EmptyLabel(rule.to_owned()));
             }
 
-            let children = &mut current.children;
-
             #[cfg(not(feature = "anycase"))]
-            let entry = children.entry(label.as_bytes().to_vec());
-
+            let key = hash(label.as_bytes());
             #[cfg(feature = "anycase")]
-            let entry = children.entry(AnyCase::from(label.to_owned()));
+            let key = hash(UniCase::new(label));
 
-            current = entry.or_insert_with(Default::default);
+            current = current.children.entry(key).or_insert_with(Default::default);
         }
 
         current.leaf = Some(Leaf {
@@ -128,26 +122,26 @@ impl Psl for List {
         let mut info = Info { len: 0, typ: None };
         let mut len = 0;
 
-        let mut current = &self.0;
+        let mut current = &self.rules;
         for label in labels {
             let is_first_label = len == 0;
             #[cfg(not(feature = "anycase"))]
-            let node_opt = current.children.get(label);
+            let key = hash(label);
             #[cfg(feature = "anycase")]
-            let node_opt = match str::from_utf8(label) {
-                Ok(label) => current.children.get(&AnyCase::from(label)),
+            let key = match str::from_utf8(label) {
+                Ok(label) => hash(UniCase::new(label)),
                 Err(_) => return Info { len: 0, typ: None },
             };
-            match node_opt {
+            match current.children.get(&key) {
                 Some(node) => {
                     current = node;
                 }
                 None => {
                     #[cfg(not(feature = "anycase"))]
-                    let node_opt = current.children.get(WILDCARD.as_bytes());
+                    let key = hash(WILDCARD.as_bytes());
                     #[cfg(feature = "anycase")]
-                    let node_opt = current.children.get(&AnyCase::from(WILDCARD));
-                    match node_opt {
+                    let key = hash(UniCase::new(WILDCARD));
+                    match current.children.get(&key) {
                         Some(node) => {
                             current = node;
                         }
@@ -221,4 +215,10 @@ impl Default for List {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn hash<T: Hash>(value: T) -> u64 {
+    let mut hasher = FxHasher::default();
+    value.hash(&mut hasher);
+    hasher.finish()
 }
