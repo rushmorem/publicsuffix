@@ -48,6 +48,7 @@ pub struct List {
 
 impl List {
     /// Creates a new list with default wildcard rule support
+    #[inline]
     pub fn new() -> Self {
         let mut children = Children::default();
         children.insert(
@@ -69,6 +70,7 @@ impl List {
     }
 
     /// Creates a new list from a byte slice
+    #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         from_utf8(bytes)
             .map_err(|_| Error::ListNotUtf8Encoded)?
@@ -76,10 +78,12 @@ impl List {
     }
 
     /// Checks to see if the list is empty, ignoring the wildcard rule
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.rules.children.len() < 2
     }
 
+    #[inline]
     fn append(&mut self, mut rule: &str, typ: Type) -> Result<(), Error> {
         let mut is_exception = false;
         if rule.starts_with('!') {
@@ -173,6 +177,7 @@ impl Psl for List {
 impl FromStr for List {
     type Err = Error;
 
+    #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut typ = None;
         let mut list = List::new();
@@ -212,11 +217,13 @@ impl FromStr for List {
 }
 
 impl Default for List {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[inline]
 fn hash<T: Hash>(value: T) -> u64 {
     let mut hasher = FxHasher::default();
     value.hash(&mut hasher);
