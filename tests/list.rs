@@ -1,40 +1,19 @@
-use std::fs::File;
-use std::io::prelude::*;
-use std::path::Path;
-use std::{env, mem, str};
-
 use publicsuffix::{List, Psl, Type};
 use rspec::report::ExampleResult;
+use std::{env, mem, str};
 
 lazy_static::lazy_static! {
-    static ref ROOT: String = env::var("CARGO_MANIFEST_DIR").unwrap();
-    static ref LIST: List = {
-        let path = Path::new(ROOT.as_str())
-            .join("tests")
-            .join("public_suffix_list.dat");
-        let mut file = File::open(path).unwrap();
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-        contents.parse().unwrap()
-    };
+    static ref LIST: List = include_str!("public_suffix_list.dat").parse().unwrap();
 }
 
 #[test]
 fn list_behaviour() {
     rspec::run(&rspec::describe("the official test", (), |ctx| {
-        let body = {
-            // `tests.txt` was downloaded from
-            // https://raw.githubusercontent.com/publicsuffix/list/master/tests/tests.txt
-            let path = Path::new(ROOT.as_str()).join("tests").join("tests.txt");
-            let mut file = File::open(path).unwrap();
-            let mut contents = String::new();
-            file.read_to_string(&mut contents).unwrap();
-            contents
-        };
-
         let mut parse = false;
 
-        for (i, line) in body.lines().enumerate() {
+        // `tests.txt` was downloaded from
+        // https://raw.githubusercontent.com/publicsuffix/list/master/tests/tests.txt
+        for (i, line) in include_str!("tests.txt").lines().enumerate() {
             match line {
                 line if line.trim().is_empty() => {
                     parse = true;
