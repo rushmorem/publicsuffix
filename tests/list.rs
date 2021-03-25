@@ -33,12 +33,7 @@ fn list_behaviour() {
                     let input = match test.next() {
                         Some("null") => "",
                         Some(res) => res,
-                        None => {
-                            panic!(format!(
-                                "line {} of the test file doesn't seem to be valid",
-                                i
-                            ));
-                        }
+                        None => panic!("line {} of the test file doesn't seem to be valid", i),
                     };
                     if !expected_tld(input)
                         || (cfg!(not(feature = "punycode")) && input.contains("xn--"))
@@ -59,12 +54,7 @@ fn list_behaviour() {
                             };
                             (Some(root.to_string()), Some(suffix.to_string()))
                         }
-                        None => {
-                            panic!(format!(
-                                "line {} of the test file doesn't seem to be valid",
-                                i
-                            ));
-                        }
+                        None => panic!("line {} of the test file doesn't seem to be valid", i),
                     };
                     let (found_root, found_suffix) =
                         if input.starts_with(".") || input.contains("..") {
@@ -127,6 +117,8 @@ fn list_behaviour() {
             ("www.xn--85x722f.xn--55qx5d.cn", "xn--55qx5d.cn"),
             ("a.b.example.uk.com", "uk.com"),
             ("_tcp.example.com.", "com."),
+            ("airbroadband.co.z", "z"),
+            ("th-tyo.access.aseinet.ne.jp", "ne.jp"),
         ];
 
         for (input, expected) in extra {

@@ -34,14 +34,14 @@ struct Node {
     leaf: Option<Leaf>,
 }
 
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 struct Leaf {
     is_exception: bool,
-    typ: Option<Type>,
+    typ: Type,
 }
 
 /// A dynamic public suffix list
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct List {
     rules: Node,
 }
@@ -50,23 +50,7 @@ impl List {
     /// Creates a new list with default wildcard rule support
     #[inline]
     pub fn new() -> Self {
-        let mut children = Children::default();
-        children.insert(
-            #[cfg(not(feature = "anycase"))]
-            hash(WILDCARD.as_bytes()),
-            #[cfg(feature = "anycase")]
-            hash(UniCase::new(WILDCARD)),
-            Node {
-                leaf: Some(Default::default()),
-                ..Default::default()
-            },
-        );
-        Self {
-            rules: Node {
-                children,
-                ..Default::default()
-            },
-        }
+        Default::default()
     }
 
     /// Creates a new list from a byte slice
@@ -80,7 +64,7 @@ impl List {
     /// Checks to see if the list is empty, ignoring the wildcard rule
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.rules.children.len() < 2
+        self.rules.children.is_empty()
     }
 
     #[inline]
@@ -108,66 +92,89 @@ impl List {
             current = current.children.entry(key).or_insert_with(Default::default);
         }
 
-        current.leaf = Some(Leaf {
-            is_exception,
-            typ: Some(typ),
-        });
+        current.leaf = Some(Leaf { is_exception, typ });
 
         Ok(())
     }
 }
 
+#[cfg(feature = "anycase")]
+macro_rules! anycase_key {
+    ($label:ident) => {
+        match str::from_utf8($label) {
+            Ok(label) => hash(UniCase::new(label)),
+            Err(_) => return Info { len: 0, typ: None },
+        }
+    };
+}
+
+macro_rules! byte_key {
+    ($label:ident) => {{
+        #[cfg(not(feature = "anycase"))]
+        let key = hash($label);
+        #[cfg(feature = "anycase")]
+        let key = anycase_key!($label);
+        key
+    }};
+}
+
+macro_rules! wildcard_key {
+    () => {{
+        #[cfg(not(feature = "anycase"))]
+        let key = hash(WILDCARD.as_bytes());
+        #[cfg(feature = "anycase")]
+        let key = hash(UniCase::new(WILDCARD));
+        key
+    }};
+}
+
 impl Psl for List {
     #[inline]
-    fn find<'a, T>(&self, labels: T) -> Info
+    fn find<'a, T>(&self, mut labels: T) -> Info
     where
         T: Iterator<Item = &'a [u8]>,
     {
-        let mut info = Info { len: 0, typ: None };
-        let mut len = 0;
-
-        let mut current = &self.rules;
-        for label in labels {
-            let is_first_label = len == 0;
-            #[cfg(not(feature = "anycase"))]
-            let key = hash(label);
-            #[cfg(feature = "anycase")]
-            let key = match str::from_utf8(label) {
-                Ok(label) => hash(UniCase::new(label)),
-                Err(_) => return Info { len: 0, typ: None },
-            };
-            match current.children.get(&key) {
-                Some(node) => {
-                    current = node;
-                }
-                None => {
-                    #[cfg(not(feature = "anycase"))]
-                    let key = hash(WILDCARD.as_bytes());
-                    #[cfg(feature = "anycase")]
-                    let key = hash(UniCase::new(WILDCARD));
-                    match current.children.get(&key) {
-                        Some(node) => {
-                            current = node;
-                        }
-                        None => break,
+        let mut rules = &self.rules;
+        // the first label
+        let mut info = match labels.next() {
+            Some(label) => {
+                let mut info = Info {
+                    len: label.len(),
+                    typ: None,
+                };
+                match rules.children.get(&byte_key!(label)) {
+                    Some(node) => {
+                        info.typ = node.leaf.map(|leaf| leaf.typ);
+                        rules = node;
                     }
+                    None => return info,
                 }
+                info
             }
-            let label_len = label.len();
-            len += if is_first_label {
-                label_len
-            } else {
-                1 + label_len
-            };
-            if let Some(leaf) = current.leaf {
+            None => return Info { len: 0, typ: None },
+        };
+
+        // the rest of the labels
+        let mut len_so_far = info.len;
+        for label in labels {
+            match rules.children.get(&byte_key!(label)) {
+                Some(node) => rules = node,
+                None => match rules.children.get(&wildcard_key!()) {
+                    Some(node) => rules = node,
+                    None => break,
+                },
+            }
+            let label_plus_dot = label.len() + 1;
+            if let Some(leaf) = rules.leaf {
+                info.typ = Some(leaf.typ);
                 if leaf.is_exception {
-                    len -= 1 + label_len;
+                    info.len = len_so_far;
+                    break;
+                } else {
+                    info.len = len_so_far + label_plus_dot;
                 }
-                info.len = len;
-                info.typ = leaf.typ;
-            } else if is_first_label {
-                info.len = len;
             }
+            len_so_far += label_plus_dot;
         }
 
         info
@@ -212,14 +219,10 @@ impl FromStr for List {
                 },
             }
         }
+        if list.is_empty() {
+            return Err(Error::InvalidList);
+        }
         Ok(list)
-    }
-}
-
-impl Default for List {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -228,4 +231,95 @@ fn hash<T: Hash>(value: T) -> u64 {
     let mut hasher = FxHasher::default();
     value.hash(&mut hasher);
     hasher.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const LIST: &[u8] = b"
+        // BEGIN ICANN DOMAINS
+        com.uk
+        ";
+
+    #[test]
+    fn list_construction() {
+        let list = List::from_bytes(LIST).unwrap();
+        let expected = List {
+            rules: Node {
+                children: {
+                    let mut children = Children::default();
+                    children.insert(
+                        #[cfg(not(feature = "anycase"))]
+                        hash(b"uk"),
+                        #[cfg(feature = "anycase")]
+                        hash(UniCase::new("uk")),
+                        Node {
+                            children: {
+                                let mut children = Children::default();
+                                children.insert(
+                                    #[cfg(not(feature = "anycase"))]
+                                    hash(b"com"),
+                                    #[cfg(feature = "anycase")]
+                                    hash(UniCase::new("com")),
+                                    Node {
+                                        children: Default::default(),
+                                        leaf: Some(Leaf {
+                                            is_exception: false,
+                                            typ: Type::Icann,
+                                        }),
+                                    },
+                                );
+                                children
+                            },
+                            leaf: None,
+                        },
+                    );
+                    children
+                },
+                leaf: None,
+            },
+        };
+        assert_eq!(list, expected);
+    }
+
+    #[test]
+    fn find_localhost() {
+        let list = List::from_bytes(LIST).unwrap();
+        let labels = b"localhost".rsplit(|x| *x == b'.');
+        assert_eq!(list.find(labels), Info { len: 9, typ: None });
+    }
+
+    #[test]
+    fn find_uk() {
+        let list = List::from_bytes(LIST).unwrap();
+        let labels = b"uk".rsplit(|x| *x == b'.');
+        assert_eq!(list.find(labels), Info { len: 2, typ: None });
+    }
+
+    #[test]
+    fn find_com_uk() {
+        let list = List::from_bytes(LIST).unwrap();
+        let labels = b"com.uk".rsplit(|x| *x == b'.');
+        assert_eq!(
+            list.find(labels),
+            Info {
+                len: 6,
+                typ: Some(Type::Icann)
+            }
+        );
+    }
+
+    #[test]
+    fn find_ide_kyoto_jp() {
+        let list = List::from_bytes(b"// BEGIN ICANN DOMAINS\nide.kyoto.jp").unwrap();
+        let labels = b"ide.kyoto.jp".rsplit(|x| *x == b'.');
+        assert_eq!(
+            list.find(labels),
+            Info {
+                len: 12,
+                typ: Some(Type::Icann)
+            }
+        );
+    }
 }
