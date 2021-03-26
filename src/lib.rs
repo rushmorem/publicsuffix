@@ -5,18 +5,21 @@
 
 extern crate alloc;
 
+#[cfg(feature = "anycase")]
+mod anycase;
 mod error;
 mod fxhash;
 
 use alloc::borrow::ToOwned;
-use core::hash::{Hash, Hasher};
+#[cfg(not(feature = "anycase"))]
+use alloc::vec::Vec;
+#[cfg(feature = "anycase")]
+use anycase::AnyCase;
 #[cfg(feature = "anycase")]
 use core::str;
 use core::str::{from_utf8, FromStr};
-use fxhash::{FxBuildHasher, FxHasher};
+use fxhash::FxBuildHasher;
 use hashbrown::HashMap;
-#[cfg(feature = "anycase")]
-use unicase::UniCase;
 
 pub use error::Error;
 pub use psl_types::{Domain, Info, List as Psl, Suffix, Type};
@@ -24,7 +27,11 @@ pub use psl_types::{Domain, Info, List as Psl, Suffix, Type};
 /// The official URL of the list
 pub const LIST_URL: &str = "https://publicsuffix.org/list/public_suffix_list.dat";
 
-type Children = HashMap<u64, Node, FxBuildHasher>;
+#[cfg(not(feature = "anycase"))]
+type Children = HashMap<Vec<u8>, Node, FxBuildHasher>;
+
+#[cfg(feature = "anycase")]
+type Children = HashMap<AnyCase<'static>, Node, FxBuildHasher>;
 
 const WILDCARD: &str = "*";
 
@@ -85,9 +92,9 @@ impl List {
             }
 
             #[cfg(not(feature = "anycase"))]
-            let key = hash(label.as_bytes());
+            let key = label.as_bytes().to_owned();
             #[cfg(feature = "anycase")]
-            let key = hash(UniCase::new(label));
+            let key = AnyCase::from(label.to_owned());
 
             current = current.children.entry(key).or_insert_with(Default::default);
         }
@@ -102,30 +109,10 @@ impl List {
 macro_rules! anycase_key {
     ($label:ident) => {
         match str::from_utf8($label) {
-            Ok(label) => hash(UniCase::new(label)),
+            Ok(label) => AnyCase::from(label),
             Err(_) => return Info { len: 0, typ: None },
         }
     };
-}
-
-macro_rules! byte_key {
-    ($label:ident) => {{
-        #[cfg(not(feature = "anycase"))]
-        let key = hash($label);
-        #[cfg(feature = "anycase")]
-        let key = anycase_key!($label);
-        key
-    }};
-}
-
-macro_rules! wildcard_key {
-    () => {{
-        #[cfg(not(feature = "anycase"))]
-        let key = hash(WILDCARD.as_bytes());
-        #[cfg(feature = "anycase")]
-        let key = hash(UniCase::new(WILDCARD));
-        key
-    }};
 }
 
 impl Psl for List {
@@ -142,7 +129,11 @@ impl Psl for List {
                     len: label.len(),
                     typ: None,
                 };
-                match rules.children.get(&byte_key!(label)) {
+                #[cfg(not(feature = "anycase"))]
+                let node_opt = rules.children.get(label);
+                #[cfg(feature = "anycase")]
+                let node_opt = rules.children.get(&anycase_key!(label));
+                match node_opt {
                     Some(node) => {
                         info.typ = node.leaf.map(|leaf| leaf.typ);
                         rules = node;
@@ -157,12 +148,22 @@ impl Psl for List {
         // the rest of the labels
         let mut len_so_far = info.len;
         for label in labels {
-            match rules.children.get(&byte_key!(label)) {
+            #[cfg(not(feature = "anycase"))]
+            let node_opt = rules.children.get(label);
+            #[cfg(feature = "anycase")]
+            let node_opt = rules.children.get(&anycase_key!(label));
+            match node_opt {
                 Some(node) => rules = node,
-                None => match rules.children.get(&wildcard_key!()) {
-                    Some(node) => rules = node,
-                    None => break,
-                },
+                None => {
+                    #[cfg(not(feature = "anycase"))]
+                    let node_opt = rules.children.get(WILDCARD.as_bytes());
+                    #[cfg(feature = "anycase")]
+                    let node_opt = rules.children.get(&AnyCase::from(WILDCARD));
+                    match node_opt {
+                        Some(node) => rules = node,
+                        None => break,
+                    }
+                }
             }
             let label_plus_dot = label.len() + 1;
             if let Some(leaf) = rules.leaf {
@@ -226,13 +227,6 @@ impl FromStr for List {
     }
 }
 
-#[inline]
-fn hash<T: Hash>(value: T) -> u64 {
-    let mut hasher = FxHasher::default();
-    value.hash(&mut hasher);
-    hasher.finish()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -251,17 +245,17 @@ mod tests {
                     let mut children = Children::default();
                     children.insert(
                         #[cfg(not(feature = "anycase"))]
-                        hash(b"uk"),
+                        b"uk".to_vec(),
                         #[cfg(feature = "anycase")]
-                        hash(UniCase::new("uk")),
+                        AnyCase::from("uk"),
                         Node {
                             children: {
                                 let mut children = Children::default();
                                 children.insert(
                                     #[cfg(not(feature = "anycase"))]
-                                    hash(b"com"),
+                                    b"com".to_vec(),
                                     #[cfg(feature = "anycase")]
-                                    hash(UniCase::new("com")),
+                                    AnyCase::from("com"),
                                     Node {
                                         children: Default::default(),
                                         leaf: Some(Leaf {
