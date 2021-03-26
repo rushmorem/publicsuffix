@@ -9,12 +9,14 @@ pub(super) enum AnyCase<'a> {
 }
 
 impl From<String> for AnyCase<'_> {
+    #[inline]
     fn from(s: String) -> Self {
         Self::Owned(UniCase::new(s))
     }
 }
 
 impl<'a> From<&'a str> for AnyCase<'a> {
+    #[inline]
     fn from(s: &'a str) -> Self {
         Self::Borrowed(UniCase::new(s))
     }

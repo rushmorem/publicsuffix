@@ -13,6 +13,7 @@ pub enum Error {
 }
 
 impl fmt::Display for Error {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::EmptyLabel(rule) => write!(f, "rule `{}` contains an empty label", rule),

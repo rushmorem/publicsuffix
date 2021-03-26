@@ -122,7 +122,10 @@ impl Psl for List {
         T: Iterator<Item = &'a [u8]>,
     {
         let mut rules = &self.rules;
+
         // the first label
+        // it's special because we always need it whether or not
+        // it's in our hash map (because of the implicit wildcard)
         let mut info = match labels.next() {
             Some(label) => {
                 let mut info = Info {
