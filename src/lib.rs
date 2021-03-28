@@ -5,21 +5,21 @@
 
 extern crate alloc;
 
-#[cfg(feature = "anycase")]
-mod anycase;
 mod error;
 mod fxhash;
 
+#[cfg(feature = "anycase")]
+use alloc::borrow::Cow;
 use alloc::borrow::ToOwned;
 #[cfg(not(feature = "anycase"))]
 use alloc::vec::Vec;
-#[cfg(feature = "anycase")]
-use anycase::AnyCase;
 #[cfg(feature = "anycase")]
 use core::str;
 use core::str::{from_utf8, FromStr};
 use fxhash::FxBuildHasher;
 use hashbrown::HashMap;
+#[cfg(feature = "anycase")]
+use unicase::UniCase;
 
 pub use error::Error;
 pub use psl_types::{Domain, Info, List as Psl, Suffix, Type};
@@ -31,7 +31,7 @@ pub const LIST_URL: &str = "https://publicsuffix.org/list/public_suffix_list.dat
 type Children = HashMap<Vec<u8>, Node, FxBuildHasher>;
 
 #[cfg(feature = "anycase")]
-type Children = HashMap<AnyCase<'static>, Node, FxBuildHasher>;
+type Children = HashMap<UniCase<Cow<'static, str>>, Node, FxBuildHasher>;
 
 const WILDCARD: &str = "*";
 
@@ -94,7 +94,7 @@ impl List {
             #[cfg(not(feature = "anycase"))]
             let key = label.as_bytes().to_owned();
             #[cfg(feature = "anycase")]
-            let key = AnyCase::from(label.to_owned());
+            let key = UniCase::new(Cow::from(label.to_owned()));
 
             current = current.children.entry(key).or_insert_with(Default::default);
         }
@@ -109,7 +109,7 @@ impl List {
 macro_rules! anycase_key {
     ($label:ident) => {
         match str::from_utf8($label) {
-            Ok(label) => AnyCase::from(label),
+            Ok(label) => UniCase::new(Cow::from(label)),
             Err(_) => return Info { len: 0, typ: None },
         }
     };
@@ -161,7 +161,7 @@ impl Psl for List {
                     #[cfg(not(feature = "anycase"))]
                     let node_opt = rules.children.get(WILDCARD.as_bytes());
                     #[cfg(feature = "anycase")]
-                    let node_opt = rules.children.get(&AnyCase::from(WILDCARD));
+                    let node_opt = rules.children.get(&UniCase::new(Cow::from(WILDCARD)));
                     match node_opt {
                         Some(node) => rules = node,
                         None => break,
@@ -250,7 +250,7 @@ mod tests {
                         #[cfg(not(feature = "anycase"))]
                         b"uk".to_vec(),
                         #[cfg(feature = "anycase")]
-                        AnyCase::from("uk"),
+                        UniCase::new(Cow::from("uk")),
                         Node {
                             children: {
                                 let mut children = Children::default();
@@ -258,7 +258,7 @@ mod tests {
                                     #[cfg(not(feature = "anycase"))]
                                     b"com".to_vec(),
                                     #[cfg(feature = "anycase")]
-                                    AnyCase::from("com"),
+                                    UniCase::new(Cow::from("com")),
                                     Node {
                                         children: Default::default(),
                                         leaf: Some(Leaf {
