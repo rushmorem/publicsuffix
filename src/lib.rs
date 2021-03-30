@@ -51,6 +51,7 @@ struct Leaf {
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct List {
     rules: Node,
+    typ: Option<Type>,
 }
 
 impl List {
@@ -170,12 +171,14 @@ impl Psl for List {
             }
             let label_plus_dot = label.len() + 1;
             if let Some(leaf) = rules.leaf {
-                info.typ = Some(leaf.typ);
-                if leaf.is_exception {
-                    info.len = len_so_far;
-                    break;
-                } else {
-                    info.len = len_so_far + label_plus_dot;
+                if self.typ.is_none() || self.typ == Some(leaf.typ) {
+                    info.typ = Some(leaf.typ);
+                    if leaf.is_exception {
+                        info.len = len_so_far;
+                        break;
+                    } else {
+                        info.len = len_so_far + label_plus_dot;
+                    }
                 }
             }
             len_so_far += label_plus_dot;
@@ -230,6 +233,116 @@ impl FromStr for List {
     }
 }
 
+/// A list of only ICANN suffixes
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
+pub struct IcannList(List);
+
+impl From<List> for IcannList {
+    #[inline]
+    fn from(mut list: List) -> Self {
+        list.typ = Some(Type::Icann);
+        Self(list)
+    }
+}
+
+impl From<IcannList> for List {
+    #[inline]
+    fn from(IcannList(mut list): IcannList) -> Self {
+        list.typ = None;
+        list
+    }
+}
+
+impl IcannList {
+    /// Creates a new list from a byte slice
+    #[inline]
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        let list = List::from_bytes(bytes)?;
+        Ok(list.into())
+    }
+
+    /// Checks to see if the list is empty, ignoring the wildcard rule
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl FromStr for IcannList {
+    type Err = Error;
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let list = List::from_str(s)?;
+        Ok(list.into())
+    }
+}
+
+impl Psl for IcannList {
+    #[inline]
+    fn find<'a, T>(&self, labels: T) -> Info
+    where
+        T: Iterator<Item = &'a [u8]>,
+    {
+        self.0.find(labels)
+    }
+}
+
+/// A list of only private suffixes
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
+pub struct PrivateList(List);
+
+impl From<List> for PrivateList {
+    #[inline]
+    fn from(mut list: List) -> Self {
+        list.typ = Some(Type::Private);
+        Self(list)
+    }
+}
+
+impl From<PrivateList> for List {
+    #[inline]
+    fn from(PrivateList(mut list): PrivateList) -> Self {
+        list.typ = None;
+        list
+    }
+}
+
+impl PrivateList {
+    /// Creates a new list from a byte slice
+    #[inline]
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        let list = List::from_bytes(bytes)?;
+        Ok(list.into())
+    }
+
+    /// Checks to see if the list is empty, ignoring the wildcard rule
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl FromStr for PrivateList {
+    type Err = Error;
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let list = List::from_str(s)?;
+        Ok(list.into())
+    }
+}
+
+impl Psl for PrivateList {
+    #[inline]
+    fn find<'a, T>(&self, labels: T) -> Info
+    where
+        T: Iterator<Item = &'a [u8]>,
+    {
+        self.0.find(labels)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -243,6 +356,7 @@ mod tests {
     fn list_construction() {
         let list = List::from_bytes(LIST).unwrap();
         let expected = List {
+            typ: None,
             rules: Node {
                 children: {
                     let mut children = Children::default();
