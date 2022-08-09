@@ -6,7 +6,6 @@
 extern crate alloc;
 
 mod error;
-mod fxhash;
 
 #[cfg(feature = "anycase")]
 use alloc::borrow::Cow;
@@ -16,7 +15,6 @@ use alloc::vec::Vec;
 #[cfg(feature = "anycase")]
 use core::str;
 use core::str::{from_utf8, FromStr};
-use fxhash::FxBuildHasher;
 use hashbrown::HashMap;
 #[cfg(feature = "anycase")]
 use unicase::UniCase;
@@ -28,10 +26,10 @@ pub use psl_types::{Domain, Info, List as Psl, Suffix, Type};
 pub const LIST_URL: &str = "https://publicsuffix.org/list/public_suffix_list.dat";
 
 #[cfg(not(feature = "anycase"))]
-type Children = HashMap<Vec<u8>, Node, FxBuildHasher>;
+type Children = HashMap<Vec<u8>, Node>;
 
 #[cfg(feature = "anycase")]
-type Children = HashMap<UniCase<Cow<'static, str>>, Node, FxBuildHasher>;
+type Children = HashMap<UniCase<Cow<'static, str>>, Node>;
 
 const WILDCARD: &str = "*";
 
@@ -57,11 +55,17 @@ pub struct List {
 impl List {
     /// Creates a new list with default wildcard rule support
     #[inline]
+    #[must_use]
     pub fn new() -> Self {
-        Default::default()
+        Self::default()
     }
 
     /// Creates a new list from a byte slice
+    ///
+    /// # Errors
+    ///
+    /// Returns an `Err` if the list is not UTF-8 encoded
+    /// or if its format is invalid.
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         from_utf8(bytes)
@@ -71,6 +75,7 @@ impl List {
 
     /// Checks to see if the list is empty, ignoring the wildcard rule
     #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.rules.children.is_empty()
     }
@@ -176,9 +181,8 @@ impl Psl for List {
                     if leaf.is_exception {
                         info.len = len_so_far;
                         break;
-                    } else {
-                        info.len = len_so_far + label_plus_dot;
                     }
+                    info.len = len_so_far + label_plus_dot;
                 }
             }
             len_so_far += label_plus_dot;
@@ -255,6 +259,11 @@ impl From<IcannList> for List {
 
 impl IcannList {
     /// Creates a new list from a byte slice
+    ///
+    /// # Errors
+    ///
+    /// Returns an `Err` if the list is not UTF-8 encoded
+    /// or if its format is invalid.
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let list = List::from_bytes(bytes)?;
@@ -263,6 +272,7 @@ impl IcannList {
 
     /// Checks to see if the list is empty, ignoring the wildcard rule
     #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -310,6 +320,11 @@ impl From<PrivateList> for List {
 
 impl PrivateList {
     /// Creates a new list from a byte slice
+    ///
+    /// # Errors
+    ///
+    /// Returns an `Err` if the list is not UTF-8 encoded
+    /// or if its format is invalid.
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let list = List::from_bytes(bytes)?;
@@ -318,6 +333,7 @@ impl PrivateList {
 
     /// Checks to see if the list is empty, ignoring the wildcard rule
     #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
