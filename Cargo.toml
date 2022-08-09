@@ -27,7 +27,6 @@ punycode = ["idna"]
 std = []
 
 [dependencies]
-byteorder = { version = "1.4.3", default-features = false }
 hashbrown = { version = "0.12.3", features = ["inline-more"] }
 psl-types = "2.0.10"
 
