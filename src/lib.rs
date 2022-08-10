@@ -10,12 +10,15 @@ mod error;
 #[cfg(feature = "anycase")]
 use alloc::borrow::Cow;
 use alloc::borrow::ToOwned;
+#[cfg(not(any(feature = "hashbrown", feature = "punycode", feature = "std")))]
+use alloc::collections::BTreeMap as Map;
 #[cfg(not(feature = "anycase"))]
 use alloc::vec::Vec;
-#[cfg(feature = "anycase")]
-use core::str;
 use core::str::{from_utf8, FromStr};
-use hashbrown::HashMap;
+#[cfg(feature = "hashbrown")]
+use hashbrown::HashMap as Map;
+#[cfg(all(not(feature = "hashbrown"), any(feature = "punycode", feature = "std")))]
+use std::collections::HashMap as Map;
 #[cfg(feature = "anycase")]
 use unicase::UniCase;
 
@@ -26,10 +29,10 @@ pub use psl_types::{Domain, Info, List as Psl, Suffix, Type};
 pub const LIST_URL: &str = "https://publicsuffix.org/list/public_suffix_list.dat";
 
 #[cfg(not(feature = "anycase"))]
-type Children = HashMap<Vec<u8>, Node>;
+type Children = Map<Vec<u8>, Node>;
 
 #[cfg(feature = "anycase")]
-type Children = HashMap<UniCase<Cow<'static, str>>, Node>;
+type Children = Map<UniCase<Cow<'static, str>>, Node>;
 
 const WILDCARD: &str = "*";
 
@@ -114,7 +117,7 @@ impl List {
 #[cfg(feature = "anycase")]
 macro_rules! anycase_key {
     ($label:ident) => {
-        match str::from_utf8($label) {
+        match from_utf8($label) {
             Ok(label) => UniCase::new(Cow::from(label)),
             Err(_) => return Info { len: 0, typ: None },
         }

@@ -20,7 +20,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --all-features
+          args: --features std
 
   test:
     name: Test on stable

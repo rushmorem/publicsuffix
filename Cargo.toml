@@ -8,7 +8,7 @@ documentation = "https://docs.rs/publicsuffix"
 readme = "README.md"
 keywords = ["tld", "psl", "no_std", "tldextract", "domain"]
 authors = ["rushmorem <rushmore@webenchanter.com>"]
-edition = "2021"
+edition = "2018"
 
 [features]
 # Punycode is enabled by default to be feature parity with the `psl` crate
@@ -27,10 +27,10 @@ punycode = ["idna"]
 std = []
 
 [dependencies]
-hashbrown = { version = "0.12.3", features = ["inline-more"] }
-psl-types = "2.0.10"
+psl-types = "2.0.11"
 
 # Optional dependencies
+hashbrown = { version = "0.12.3", features = ["inline-more"], optional = true }
 idna = { version = "0.2.3", optional = true }
 unicase = { version = "2.6.0", default-features = false, optional = true }
 
