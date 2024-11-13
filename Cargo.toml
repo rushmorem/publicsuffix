@@ -30,12 +30,11 @@ std = []
 psl-types = "2.0.11"
 
 # Optional dependencies
-hashbrown = { version = "0.12.3", features = ["inline-more"], optional = true }
+hashbrown = { version = "0.15.1", features = ["inline-more"], optional = true }
 idna = { version = "1.0", optional = true }
 unicase = { version = "2.6.0", default-features = false, optional = true }
 
 [dev-dependencies]
-lazy_static = "1.4.0"
 rspec = "1.0.0"
 
 [package.metadata.docs.rs]

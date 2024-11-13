@@ -105,7 +105,7 @@ impl List {
             #[cfg(feature = "anycase")]
             let key = UniCase::new(Cow::from(label.to_owned()));
 
-            current = current.children.entry(key).or_insert_with(Default::default);
+            current = current.children.entry(key).or_default();
         }
 
         current.leaf = Some(Leaf { is_exception, typ });
