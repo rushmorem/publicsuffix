@@ -35,7 +35,6 @@ idna = { version = "1.0", optional = true }
 unicase = { version = "2.6.0", default-features = false, optional = true }
 
 [dev-dependencies]
-lazy_static = "1.4.0"
 rspec = "1.0.0"
 
 [package.metadata.docs.rs]

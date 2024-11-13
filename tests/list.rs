@@ -1,10 +1,10 @@
 use publicsuffix::{List, Psl, Type};
 use rspec::report::ExampleResult;
+use std::sync::LazyLock;
 use std::{env, mem, str};
 
-lazy_static::lazy_static! {
-    static ref LIST: List = include_str!("public_suffix_list.dat").parse().unwrap();
-}
+static LIST: LazyLock<List> =
+    LazyLock::new(|| include_str!("public_suffix_list.dat").parse().unwrap());
 
 #[test]
 fn list_behaviour() {
